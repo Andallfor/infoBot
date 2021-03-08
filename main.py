@@ -2,14 +2,27 @@ import discord
 import os
 import sys
 import timeit
+import pickle
+import guildClass
+
+started = False
 
 class _client(discord.Client):
     async def on_ready(self):
-        print(f"{self.user}")
+        global started
+        if started:
+            return
+
+        started = True        
+
+        for g in self.guilds:
+            gd = guildClass.guild()
+            await gd.manualInit(g)
+            
     
     async def on_message(self, message):
         # command to run bot is \
-        if message.content[0] != "\\" or message.author == self.user:
+        if len(message.content) == 0 or message.content[0] != "\\" or message.author == self.user or not started:
             return
         
         await message.channel.send("Recieved command")
@@ -23,13 +36,11 @@ class _client(discord.Client):
         \ratio phrase channel
         '''
 
-
-        '''
-        client.cached_messages?
-        '''
-
         keyWords = message.content.split(' ')
         keyWords = [i.lower() for i in keyWords]
+
+        for i in range(len(self.cached_messages)):
+            await message.channel.send(self.cached_messages[i].content)
 
         if keyWords[0] == '\\help':
             pass
@@ -56,7 +67,8 @@ class _client(discord.Client):
         lst = channel.history(limit = 5000).get(author_name = "Andallfor")
         endT = timeit.default_timer()
 
-        await channel.send(f"Indexed {len(lst)} messages in {endT - initT}")
+        #await channel.send(f"Indexed {len(lst)} messages in {endT - initT}")
+        await channel.send(lst)
 
 client = _client()
 
