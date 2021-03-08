@@ -1,5 +1,6 @@
 import discord
 import datetime
+# possible opt: switch lists to sets?
 
 class guild():
     async def manualInit(self, guild):
@@ -7,8 +8,8 @@ class guild():
 
         self.channels = [c for c in self.guild.text_channels]
 
-
-        # channel : [lastMessageTime, [allChannelMessages]]
+        # channel : [lastMessageTime (as datetimeScore), [{datetimeScore : messages}]]
+        # name : lastMessageTime, [formattedMsgs]
         self.channelInfo = dict()
 
         for c in self.channels:
@@ -19,23 +20,51 @@ class guild():
 
         for c in self.channels:
             if c in self.channelInfo:
-                if self.datetimeScore(self.channelInfo[c]) < (await c.fetch_message(c.last_message_id)).created_at:
-                    # the newest message saved is older then the current newest message
-                    # oldValue < currentValue
-                    self.forceSetLatestMsg(c)
+                # oldValue < currentValue
+                if self.channelInfo[c][0] < self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at):
+                    # the newest message saved is older then the current newest message        
 
                     # update messages
+                    # remove the old days msgs
+                    # get all messages from the old value to current value
+                    # format correctly, then append
+
+                    # remove the lastMessageTime key and values from formattedMsgs
+                    self.channelInfo[c][1].pop(self.channelInfo[c][0], None)
+                    # get all msgs after lastMessageTime
+                    formattedMessages = self.formatHistoryByDate(c.history(limit = None, after = self.channelInfo[c][0]))
+                    # combine the two dicts
+                    self.channelInfo[c][1].update(formattedMessages)
+
+                    # set lastMessageTime to the new lastMessageTime
+                    self.forceSetLatestMsg(c)
             else:
                 self.initNewChannelInfo(c)
 
     async def initNewChannelInfo(self, c):
-        self.channelInfo[c] = [0 if await c.fetch_message(c.last_message_id) == None else (await c.fetch_message(c.last_message_id)).created_at, [await c.history(limit = None).flatten()]] 
+        self.channelInfo[c] = [
+            0 if await c.fetch_message(c.last_message_id) == None else self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at), 
+            [await self.formatHistoryByDate(c.history(limit = None))]
+        ] 
     
     async def forceSetLatestMsg(self, c, m = None):
         if m is not None:
             self.channelInfo[c][0] = (await c.fetch_message(c.last_message_id)).created_at
         else:
             self.channelInfo[c][0] = m.created_at
+    
+    async def formatHistoryByDate(self, h):
+        # returns a dictionary
+        # datetime obj : [messages]
+        rd = dict()
+
+        async for msg in h:
+            if msg.created_at not in rd:
+                rd[self.datetimeScore(msg.created_at)] = [msg]
+            else:
+                rd[self.datetimeScore(msg.created_at)].append(msg)
+        
+        return rd
     
     # used to check if one datetime is greater then the other
     # ie if its more recent, it will be greater
