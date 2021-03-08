@@ -64,5 +64,14 @@ class guild():
     # used to check if one datetime is greater then the other
     # ie if its more recent, it will be greater
     def datetimeScore(self, dt):
-        return (dt.year * 365) + (dt.month * 12) + dt.day
+        return (dt.year * 10_000) + (dt.month * 100) + dt.day
+    
+    def year(self, score):
+        return int(score / 10_000)
+    
+    def month(self, score):
+        return int((score - (self.year(score) * 10_000)) / 100)
+    
+    def day(self, score):
+        return int(score - ((self.year(score) * 10_000 ) + (self.month(score) * 100)))
                 
