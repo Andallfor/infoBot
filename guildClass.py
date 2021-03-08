@@ -21,13 +21,8 @@ class guild():
         for c in self.channels:
             if c in self.channelInfo:
                 # oldValue < currentValue
+                # the newest message saved is older then the current newest message
                 if self.channelInfo[c][0] < self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at):
-                    # the newest message saved is older then the current newest message        
-
-                    # update messages
-                    # remove the old days msgs
-                    # get all messages from the old value to current value
-                    # format correctly, then append
 
                     # remove the lastMessageTime key and values from formattedMsgs
                     self.channelInfo[c][1].pop(self.channelInfo[c][0], None)
@@ -49,9 +44,9 @@ class guild():
     
     async def forceSetLatestMsg(self, c, m = None):
         if m is not None:
-            self.channelInfo[c][0] = (await c.fetch_message(c.last_message_id)).created_at
+            self.channelInfo[c][0] = self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at)
         else:
-            self.channelInfo[c][0] = m.created_at
+            self.channelInfo[c][0] = self.datetimeScore(m.created_at)
     
     async def formatHistoryByDate(self, h):
         # returns a dictionary

@@ -7,6 +7,12 @@ import guildClass
 
 started = False
 
+'''
+todo:
+
+save guilds with custom files
+- use guild id as name
+'''
 class _client(discord.Client):
     async def on_ready(self):
         global started
