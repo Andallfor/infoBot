@@ -8,8 +8,8 @@ class guild():
 
         self.channels = [c for c in self.guild.text_channels]
 
-        # channel : [lastMessageTime (as datetimeScore), [{datetimeScore : messages}]]
-        # name : lastMessageTime, [formattedMsgs]
+        # channel : [lastMessageTime (as datetimeScore), [datetimeScore : messages}]
+        # name : lastMessageTime, formattedMsgs
         self.channelInfo = dict()
 
         for c in self.channels:
@@ -27,7 +27,8 @@ class guild():
                     # remove the lastMessageTime key and values from formattedMsgs
                     self.channelInfo[c][1].pop(self.channelInfo[c][0], None)
                     # get all msgs after lastMessageTime
-                    formattedMessages = self.formatHistoryByDate(c.history(limit = None, after = self.channelInfo[c][0]))
+                    # cleanUTC just gives the day that it was posted, with the time values being set to 0
+                    formattedMessages = self.formatHistoryByDate(c.history(limit = None, after = self.cleanUTC(self.channelInfo[c][0])))
                     # combine the two dicts
                     self.channelInfo[c][1].update(formattedMessages)
 
@@ -39,7 +40,7 @@ class guild():
     async def initNewChannelInfo(self, c):
         self.channelInfo[c] = [
             0 if await c.fetch_message(c.last_message_id) == None else self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at), 
-            [await self.formatHistoryByDate(c.history(limit = None))]
+            await self.formatHistoryByDate(c.history(limit = None))
         ] 
     
     async def forceSetLatestMsg(self, c, m = None):
@@ -65,6 +66,9 @@ class guild():
     # ie if its more recent, it will be greater
     def datetimeScore(self, dt):
         return (dt.year * 10_000) + (dt.month * 100) + dt.day
+    
+    def cleanUTC(self, score):
+        return datetime.datetime(year = self.year(score), month = self.month(score), day = self.day(score))
     
     def year(self, score):
         return int(score / 10_000)
