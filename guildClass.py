@@ -1,5 +1,6 @@
 import discord
 import datetime
+import json
 # possible opt: switch lists to sets?
 
 class guild():
@@ -8,64 +9,135 @@ class guild():
 
         self.channels = [c for c in self.guild.text_channels]
 
-        # channel : [lastMessageTime (as datetimeScore), [datetimeScore : messages}]
-        # name : lastMessageTime, formattedMsgs
+        '''
+        {
+            name : int
+            {
+                lastMessageTime : int
+                content : str
+                {
+                    day : int
+                    [
+                        {
+                            created : datetimeScore  # bit redudent, but just incase
+                            content : str
+                            owner : int
+                            references : [int]
+                            id : 0
+                        }
+                    ]
+                }
+            }
+        }
+        '''
         self.channelInfo = dict()
 
         for c in self.channels:
             await self.initNewChannelInfo(c)
+
+    def loadFromDir(self, guild, path):
+        self.guild = guild
+        self.channels = [c for c in self.guild.text_channels]
+        self.channelInfo = dict()
+
+        d = json.load(open(path, "r"))
+
+        # switch out keys for the actual text channel
+        # this is just bc im lazy and dont want to be consistent
+        # sue me
+        for (key, item) in d.items():
+            c = guild.get_channel(int(key))
+            if c is not None:
+                modifiedContent = dict()
+                for (_key, _item) in item["content"].items():
+                    modifiedContent[int(_key)] = _item
+                
+                self.channelInfo[c] = {"lastMessageTime" : item["lastMessageTime"], "content" : modifiedContent}
     
     async def checkForUpdates(self):
         self.channels = [c for c in self.guild.text_channels]
 
         for c in self.channels:
-            if c in self.channelInfo:
+            if c in self.channelInfo.keys():
                 # oldValue < currentValue
                 # the newest message saved is older then the current newest message
-                if self.channelInfo[c][0] < self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at):
-
+                if self.channelInfo[c]["lastMessageTime"] <= self.dtScore((await c.fetch_message(c.last_message_id)).created_at):
+                    await self.guild.text_channels[0].send("Updated channel")
                     # remove the lastMessageTime key and values from formattedMsgs
-                    self.channelInfo[c][1].pop(self.channelInfo[c][0], None)
+                    self.channelInfo[c]["content"][int(self.channelInfo[c]["lastMessageTime"])] = []
                     # get all msgs after lastMessageTime
                     # cleanUTC just gives the day that it was posted, with the time values being set to 0
-                    formattedMessages = self.formatHistoryByDate(c.history(limit = None, after = self.cleanUTC(self.channelInfo[c][0])))
+                    formattedMessages = await self.formatHistoryByDate(c.history(limit = None, after = self.cleanUTC(self.channelInfo[c]["lastMessageTime"])))
+
                     # combine the two dicts
-                    self.channelInfo[c][1].update(formattedMessages)
+                    self.channelInfo[c]["content"].update(formattedMessages)
 
                     # set lastMessageTime to the new lastMessageTime
-                    self.forceSetLatestMsg(c)
+                    await self.forceSetLatestMsg(c)
             else:
-                self.initNewChannelInfo(c)
+                await self.initNewChannelInfo(c)
 
     async def initNewChannelInfo(self, c):
-        self.channelInfo[c] = [
-            0 if await c.fetch_message(c.last_message_id) == None else self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at), 
-            await self.formatHistoryByDate(c.history(limit = None))
-        ] 
+        # init base structure
+        self.channelInfo[c] = {
+            "lastMessageTime" : self.dtScore((await c.fetch_message(c.last_message_id)).created_at),
+            "content" : 
+            {
+                0 : 
+                [
+                    {
+                        "created" : 0,
+                        "content" : "",
+                        "author" : 0,
+                        "references" : [],
+                        "id" : 0
+                    }
+                ]
+            }
+        }
+
+        # fill in values
+        allMessages = await c.history(limit = None).flatten()
+
+        for m in allMessages:
+            if int(self.dtScore(m.created_at)) not in self.channelInfo[c]["content"]:
+                self.channelInfo[c]["content"][int(self.dtScore(m.created_at))] = []
+
+            self.channelInfo[c]["content"][int(self.dtScore(m.created_at))].append(self.formatMsg(m))
+
     
     async def forceSetLatestMsg(self, c, m = None):
-        if m is not None:
-            self.channelInfo[c][0] = self.datetimeScore((await c.fetch_message(c.last_message_id)).created_at)
+        if m is None:
+            self.channelInfo[c]["lastMessageTime"] = self.dtScore((await c.fetch_message(c.last_message_id)).created_at)
         else:
-            self.channelInfo[c][0] = self.datetimeScore(m.created_at)
+            self.channelInfo[c]["lastMessageTime"] = self.dtScore(m.created_at)
     
     async def formatHistoryByDate(self, h):
         # returns a dictionary
-        # datetime obj : [messages]
+        # {datetime obj : [messages]}
         rd = dict()
 
         async for msg in h:
-            if msg.created_at not in rd:
-                rd[self.datetimeScore(msg.created_at)] = [msg]
+            if self.dtScore(msg.created_at) not in rd:
+                rd[self.dtScore(msg.created_at)] = [self.formatMsg(msg)]
             else:
-                rd[self.datetimeScore(msg.created_at)].append(msg)
+                rd[self.dtScore(msg.created_at)].append(self.formatMsg(msg))
         
         return rd
     
+    def formatMsg(self, m):
+        return {
+                "created" : self.dtScore(m.created_at),
+                "content" : m.content,
+                "author" : m.author.id,
+                "references" : [u.id for u in m.mentions],
+                "id" : m.id
+            }
+    
     # used to check if one datetime is greater then the other
     # ie if its more recent, it will be greater
-    def datetimeScore(self, dt):
-        return (dt.year * 10_000) + (dt.month * 100) + dt.day
+    def dtScore(self, dt):
+        return int((dt.year * 10_000) + (dt.month * 100) + dt.day)
     
     def cleanUTC(self, score):
         return datetime.datetime(year = self.year(score), month = self.month(score), day = self.day(score))

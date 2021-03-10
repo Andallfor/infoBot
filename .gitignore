@@ -132,3 +132,5 @@ dmypy.json
 # personal stuff
 .pyc
 .DS_Store
+.json
+guilds/817946133481259008.json
