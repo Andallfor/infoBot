@@ -30,6 +30,8 @@ class _client(discord.Client):
 
             self.saveGuildClass(gd)
             self.guildInfo[g.id] = gd
+        
+        print("ready")
 
     async def terminate(self):
         # save files
@@ -37,7 +39,7 @@ class _client(discord.Client):
             self.saveGuildClass(item)
         
         await self.logout()
-        exit()
+        sys.exit("Terminated bot")
     
     def saveGuildClass(self, guild):
         json.dump(self.toJson(guild.channelInfo), open(self.joinQ([str(guild.guild.id) + ".json"]), "w"), indent = 4)
@@ -51,8 +53,15 @@ class _client(discord.Client):
     
     async def on_message(self, message):
         global started
+
+        if not started:
+            return
+
+        # save msg
+        await self.guildInfo[message.guild.id].newMsg(message.channel, message)
+
         # command to run bot is \
-        if len(message.content) == 0 or message.content[0] != "\\" or message.author == self.user or not started:
+        if len(message.content) == 0 or message.content[0] != "\\" or message.author == self.user:
             return
         
         '''

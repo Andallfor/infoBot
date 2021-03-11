@@ -62,7 +62,6 @@ class guild():
                 # oldValue < currentValue
                 # the newest message saved is older then the current newest message
                 if self.channelInfo[c]["lastMessageTime"] <= self.dtScore((await c.fetch_message(c.last_message_id)).created_at):
-                    await self.guild.text_channels[0].send("Updated channel")
                     # remove the lastMessageTime key and values from formattedMsgs
                     self.channelInfo[c]["content"][int(self.channelInfo[c]["lastMessageTime"])] = []
                     # get all msgs after lastMessageTime
@@ -81,19 +80,7 @@ class guild():
         # init base structure
         self.channelInfo[c] = {
             "lastMessageTime" : self.dtScore((await c.fetch_message(c.last_message_id)).created_at),
-            "content" : 
-            {
-                0 : 
-                [
-                    {
-                        "created" : 0,
-                        "content" : "",
-                        "author" : 0,
-                        "references" : [],
-                        "id" : 0
-                    }
-                ]
-            }
+            "content" : {}
         }
 
         # fill in values
@@ -105,12 +92,22 @@ class guild():
 
             self.channelInfo[c]["content"][int(self.dtScore(m.created_at))].append(self.formatMsg(m))
 
-    
+    async def newMsg(self, c, m):
+        await self.forceSetLatestMsg(c, m)
+        # can use lastMessageTime bc self.forceSetLastestMsg sets lastMessageTime to
+        # m's created_at time
+        print("passed")
+        self.channelInfo[c]["content"][self.channelInfo[c]["lastMessageTime"]].append(self.formatMsg(m))
+
     async def forceSetLatestMsg(self, c, m = None):
         if m is None:
             self.channelInfo[c]["lastMessageTime"] = self.dtScore((await c.fetch_message(c.last_message_id)).created_at)
         else:
             self.channelInfo[c]["lastMessageTime"] = self.dtScore(m.created_at)
+        
+        # if a new day is created
+        if self.channelInfo[c]["lastMessageTime"] not in self.channelInfo[c]["content"]:
+            self.channelInfo[c]["content"].update({self.channelInfo[c]["lastMessageTime"] : []})
     
     async def formatHistoryByDate(self, h):
         # returns a dictionary
