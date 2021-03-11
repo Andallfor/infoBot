@@ -79,11 +79,10 @@ class _client(discord.Client):
         keyWords = [i.lower() for i in keyWords]
 
         if keyWords[0] == '\\help':
-            pass
+            await self.help(message, keyWords)
         elif keyWords[0] == '\\history':
             pass
         elif keyWords[0] == '\\ratio':
-            print("recieved command")
             await self.ratio(message, keyWords)
         elif keyWords[0] == '\\init':
             started = False
@@ -94,7 +93,24 @@ class _client(discord.Client):
             await self.terminate()
         else:
             await message.channel.send(f"Did not recognize command '{keyWords[0]}'\nUse \\help to see a list of all possible commands")
-    
+
+    async def help(self, m, keyWords):
+        answers = {
+            "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, init, end, overview, sort",
+            "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime sort\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages.",
+            "ratio" : "Finds the amount of times a phrase was said, and the users that said it.\nUsage: \\ratio channel phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Phrase: No particular format, but cannot contain the character '\\'. **Non-optional**",
+            "init" : "Restarts the bot.\nUsage: \\init",
+            "end" : "Terminates the bot.\nUsage: \\end",
+            "sort" : "TBD",
+            "overview" : "This bot was created to see more data about a specifc server. To see the source code, see https://github.com/Andallfor/infoBot."
+        }
+
+        message = answers["default"]
+        if len(keyWords) == 2 and keyWords[1].lower() in answers:
+            message = answers[keyWords[1].lower()]
+        
+        await m.channel.send(message)
+            
     async def ratio(self, m, keyWords):
         # make sure its in the right format
         if len(keyWords) <= 2:
