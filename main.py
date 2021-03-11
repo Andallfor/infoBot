@@ -13,8 +13,6 @@ class _client(discord.Client):
         if started:
             return
 
-        started = True
-
         # {guild.id : guild}
         self.guildInfo = dict()
 
@@ -30,7 +28,8 @@ class _client(discord.Client):
 
             self.saveGuildClass(gd)
             self.guildInfo[g.id] = gd
-        
+
+        started = True
         print("ready")
 
     async def terminate(self):
@@ -54,14 +53,14 @@ class _client(discord.Client):
     async def on_message(self, message):
         global started
 
-        if not started:
+        if not started or message.author == self.user or len(message.content) == 0:
             return
 
         # save msg
         await self.guildInfo[message.guild.id].newMsg(message.channel, message)
 
         # command to run bot is \
-        if len(message.content) == 0 or message.content[0] != "\\" or message.author == self.user:
+        if message.content[0] != "\\":
             return
         
         '''
@@ -71,9 +70,8 @@ class _client(discord.Client):
             user, channel can be all
             startTime, endTime can be default
             sort can be totalMessages, and userChange
-        \ratio phrase channel
+        \ratio channel phrase
         \init
-        \default channel
         \end
         '''
 
@@ -85,33 +83,66 @@ class _client(discord.Client):
         elif keyWords[0] == '\\history':
             pass
         elif keyWords[0] == '\\ratio':
-            if (len(keyWords) <= 2):
-                await message.channel.send(f"Usage: \\ratio channel phrase")
-            else:
-                try:
-                    c = self.get_channel(int(keyWords[1][2 : len(keyWords[1]) - 1]))
-                except:
-                    await message.channel.send("Invalid channel bitch")
-                    return
-                if (c == None):
-                    await message.channel.send("Invalid channel bitch")
-                else:
-                    await self.ratio(' '.join(keyWords[2:]), c)
+            print("recieved command")
+            await self.ratio(message, keyWords)
         elif keyWords[0] == '\\init':
             started = False
+            await message.channel.send("Restarting...")
             await self.on_ready()
+            await message.channel.send("Restarted")
         elif keyWords[0] == '\\end':
             await self.terminate()
         else:
             await message.channel.send(f"Did not recognize command '{keyWords[0]}'\nUse \\help to see a list of all possible commands")
     
-    async def ratio(self, phrase, channel):
-        initT = timeit.default_timer()
-        lst = channel.history(limit = 5000).get(author_name = "Andallfor")
-        endT = timeit.default_timer()
+    async def ratio(self, m, keyWords):
+        # make sure its in the right format
+        if len(keyWords) <= 2:
+            await m.channel.send("Incorrect number of arguments recieved")
+            return
 
-        #await channel.send(f"Indexed {len(lst)} messages in {endT - initT}")
-        await channel.send(lst)
+        phrase = ' '.join(keyWords[2:])
+        users = dict()
+        total = 0
+        g = self.guildInfo[m.guild.id]
+
+        if keyWords[1].lower() == "all":
+            # search for phrase in all channels
+            channelsToSearch = m.guild.text_channels
+
+            for c in channelsToSearch:
+                _u, _t = self.singleChannelSearch(phrase, g, c)
+                users.update(_u)
+                total += _t
+        else:
+            # search for phrase in single channel
+            if len(m.channel_mentions) != 1:
+                await m.channel.send("Unable to parse given channels")
+            users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id], m.channel_mentions[0])
+            
+        await m.channel.send(f'Found "{phrase}" a total of {total} times.')
+        for (user, times) in users.items():
+            u = self.get_user(int(user))
+            u = "Unknown" if u == None else u.display_name
+            await m.channel.send(f"{u}: {times} ({round((times/total) * 100, 2)}%)")
+    
+    def singleChannelSearch(self, phrase, g, c):
+        users = dict()
+        total = 0
+
+        for day in g.channelInfo[c]["content"].values():
+            for message in day:
+                if phrase in message["content"]:
+                    # dont count self references
+                    if message["author"] == self.user.id:
+                        continue
+
+                    if message["author"] not in users:
+                        users[message["author"]] = 0
+                    users[message["author"]] += 1
+                    total += 1
+        
+        return (users, total)
 
     def joinQ(self, msgs):
         s = "guilds"
@@ -119,7 +150,9 @@ class _client(discord.Client):
             s += os.sep + str(m)
         return s
 
-client = _client()
+intents = discord.Intents.default()
+intents.members = True
+client = _client(intents = intents)
 
 if (len(sys.argv) != 2):
     sys.exit("Incorrect Usage. Input token along with command.")

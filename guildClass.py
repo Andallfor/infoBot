@@ -96,7 +96,6 @@ class guild():
         await self.forceSetLatestMsg(c, m)
         # can use lastMessageTime bc self.forceSetLastestMsg sets lastMessageTime to
         # m's created_at time
-        print("passed")
         self.channelInfo[c]["content"][self.channelInfo[c]["lastMessageTime"]].append(self.formatMsg(m))
 
     async def forceSetLatestMsg(self, c, m = None):
