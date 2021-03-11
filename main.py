@@ -98,11 +98,11 @@ class _client(discord.Client):
         answers = {
             "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, init, end, overview, sort",
             "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime sort\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages.",
-            "ratio" : "Finds the amount of times a phrase was said, and the users that said it.\nUsage: \\ratio channel phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Phrase: No particular format, but cannot contain the character '\\'. **Non-optional**",
+            "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Phrase: No particular format, but cannot contain the character '\\'. **Non-optional**",
             "init" : "Restarts the bot.\nUsage: \\init",
             "end" : "Terminates the bot.\nUsage: \\end",
             "sort" : "TBD",
-            "overview" : "This bot was created to see more data about a specifc server. To see the source code, see https://github.com/Andallfor/infoBot."
+            "overview" : r"This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).\nTo see the source code, see https://github.com/Andallfor/infoBot."
         }
 
         message = answers["default"]
@@ -110,7 +110,22 @@ class _client(discord.Client):
             message = answers[keyWords[1].lower()]
         
         await m.channel.send(message)
-            
+    
+    async def on_message_delete(self, message):
+        self.internalDelete(message)
+
+    async def on_bulk_message_delete(self, messages):
+        for message in messages:
+            self.internalDelete(message)
+
+    def internalDelete(self, m):
+        g = self.guildInfo[m.guild.id]
+        i = 0
+        for message in g.channelInfo["content"][g.datetimeScore(m.created_at)]:
+            if message.id == m.id:
+                g.channelInfo["content"][g.datetimeScore(m.created_at)].pop(i)
+            i += 1
+
     async def ratio(self, m, keyWords):
         # make sure its in the right format
         if len(keyWords) <= 2:
@@ -137,10 +152,14 @@ class _client(discord.Client):
             users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id], m.channel_mentions[0])
             
         await m.channel.send(f'Found "{phrase}" a total of {total} times.')
+        i = 0
         for (user, times) in users.items():
             u = self.get_user(int(user))
             u = "Unknown" if u == None else u.display_name
             await m.channel.send(f"{u}: {times} ({round((times/total) * 100, 2)}%)")
+            i += times
+        if i != total:
+            await m.channel.send(f"Deleted messages: {total - i} ({round(((i - total)/total) * 100, 2)}%)")
     
     def singleChannelSearch(self, phrase, g, c):
         users = dict()
@@ -157,7 +176,7 @@ class _client(discord.Client):
                         users[message["author"]] = 0
                     users[message["author"]] += 1
                     total += 1
-        
+
         return (users, total)
 
     def joinQ(self, msgs):
