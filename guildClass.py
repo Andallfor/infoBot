@@ -60,7 +60,13 @@ class guild():
             if c in self.channelInfo.keys():
                 # oldValue < currentValue
                 # the newest message saved is older then the current newest message
-                if self.channelInfo[c]["lastMessageTime"] <= self.dtScore((await c.fetch_message(c.last_message_id)).created_at):
+                lastMsg = (await c.history(limit = 1).flatten())
+                if len(lastMsg) == 0:
+                    continue
+                else:
+                    lastMsg = self.dtScore(lastMsg[0].created_at)
+
+                if self.channelInfo[c]["lastMessageTime"] <= lastMsg:
                     # remove the lastMessageTime key and values from formattedMsgs
                     self.channelInfo[c]["content"][int(self.channelInfo[c]["lastMessageTime"])] = []
                     # get all msgs after lastMessageTime
@@ -78,11 +84,11 @@ class guild():
     async def initNewChannelInfo(self, c):
         # no msgs have been sent in channel
 
-        lastMsg = await (c.history(limit = 1)).flatten()[0]
-        if lastMsg == None:
+        lastMsg = (await c.history(limit = 1).flatten())
+        if len(lastMsg) == 0:
             lastMsg = 0
         else:
-            lastMsg = self.dtScore(lastMsg.created_at)
+            lastMsg = self.dtScore(lastMsg[0].created_at)
 
         # init base structure
         self.channelInfo[c] = {
@@ -92,6 +98,7 @@ class guild():
 
         # fill in values
         allMessages = await c.history(limit = None).flatten()
+        print(f"{c.name} : {len(allMessages)}")
 
         for m in allMessages:
             if int(self.dtScore(m.created_at)) not in self.channelInfo[c]["content"]:
@@ -107,7 +114,7 @@ class guild():
 
     async def forceSetLatestMsg(self, c, m = None):
         if m is None:
-            self.channelInfo[c]["lastMessageTime"] = self.dtScore((await c.fetch_message(c.last_message_id)).created_at)
+            self.channelInfo[c]["lastMessageTime"] = self.dtScore((await c.history(limit = 1).flatten())[0].created_at)
         else:
             self.channelInfo[c]["lastMessageTime"] = self.dtScore(m.created_at)
         

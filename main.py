@@ -2,6 +2,7 @@ import discord
 import os
 import sys
 import json
+from discord import message
 
 from discord.embeds import Embed
 import guildClass
@@ -98,8 +99,18 @@ class _client(discord.Client):
             await message.channel.send("Restarted")
         elif keyWords[0] == '\\end':
             await self.terminate()
+        elif keyWords[0] == '\\debug':
+            self.debug(message)
         else:
             await message.channel.send(f"Did not recognize command '{keyWords[0]}'\nUse \\help to see a list of all possible commands")
+
+    def debug(self, m):
+        ci = self.guildInfo[m.guild.id].channelInfo
+        for (channel, info) in ci.items():
+            total = 0
+            for day in info["content"].values():
+                total += len(day)
+            print(f"{channel.name} : {total}")
 
     async def history(self, m, keyWords):
         if len(keyWords) < 3 and len(keyWords) <= 5:
@@ -240,7 +251,9 @@ class _client(discord.Client):
             await m.channel.send("Incorrect number of arguments recieved")
             return
 
-        phrase = ' '.join(keyWords[2:])
+        await m.channel.send("Gathering data...")
+
+        phrase = ''.join(m.content.split(' ')[2:])
         users = dict()
         total = 0
         g = self.guildInfo[m.guild.id]
@@ -251,7 +264,11 @@ class _client(discord.Client):
 
             for c in channelsToSearch:
                 _u, _t = self.singleChannelSearch(phrase, g, c)
-                users.update(_u)
+                for (key, value) in _u.items():
+                    if key in users:
+                        users[key] += value
+                    else:
+                        users[key] = value
                 total += _t
         else:
             # search for phrase in single channel
@@ -259,13 +276,25 @@ class _client(discord.Client):
                 await m.channel.send("Unable to parse given channels")
             users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id], m.channel_mentions[0])
             
-        await m.channel.send(f'Found "{phrase}" a total of {total} times.')
+
+        messageToSend = f'Found "{phrase}" a total of {total} times.\n'
         i = 0
-        for (user, times) in users.items():
+        printLines = 0
+
+        sortedUsers = sorted(users, key = users.get, reverse = True)
+
+        for user in sortedUsers:
+            if printLines >= 10:
+                break
+
+            times = users[user]
             u = self.get_user(int(user))
             u = "Unknown" if u == None else u.display_name
-            await m.channel.send(f"{u}: {times} ({round((times/total) * 100, 2)}%)")
+            messageToSend += f"{u}: {times} ({round((times/total) * 100, 2)}%)\n"
             i += times
+            printLines += 1
+        
+        await m.channel.send(messageToSend)
         if i != total:
             await m.channel.send(f"Deleted messages: {total - i} ({round(((i - total)/total) * 100, 2)}%)")
     
@@ -296,16 +325,12 @@ class _client(discord.Client):
     # should throw this into a seperate class
     def dtScore(self, dt):
         return int((dt.year * 10_000) + (dt.month * 100) + dt.day)
-
     def cleanUTC(self, score):
         return datetime.datetime(year = self.year(score), month = self.month(score), day = self.day(score))
-    
     def year(self, score):
         return int(score / 10_000)
-    
     def month(self, score):
         return int((score - (self.year(score) * 10_000)) / 100)
-    
     def day(self, score):
         return int(score - ((self.year(score) * 10_000 ) + (self.month(score) * 100)))
 
