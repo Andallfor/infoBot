@@ -102,22 +102,23 @@ class _client(discord.Client):
             await m.channel.send("Incorrect number of arguments recieved")
             return
         
-        usersToCheck = []
+        userToCheck = 0
         channelsToCheck = []
         startTime = 0
         endTime = self.dtScore(datetime.datetime.now())
 
         # get user
-        if keyWords[1] == "all":
-            usersToCheck = [u.id for u in m.guild.members]
-        else:
-            usersToCheck = [m.mentions[0].id]
+        if keyWords[1] != "all":
+            userToCheck = m.mentions[0].id
 
         # get channel
         if keyWords[2] == "all":
-            channelsToCheck = m.guild.text_channels
+            channelsToCheck = list(self.guildInfo[m.guild.id].channelInfo.keys())
         else:
             channelsToCheck = [m.channel_mentions[0]]
+            if channelsToCheck[0] not in self.guildInfo[m.guild.id].channelInfo:
+                await m.channel.send("Invalid channel recieved (might not exist or does not contain any messages)")
+                return
 
         # get start time
         if len(keyWords) >= 4 and keyWords[4] != "0":
@@ -135,32 +136,46 @@ class _client(discord.Client):
         ci = self.guildInfo[m.guild.id].channelInfo
         info = dict()
         for c in channelsToCheck:
-            for (day, messages) in ci[c]["content"].items():
-                if day == 0:
+            st = startTime if startTime != 0 else self.dtScore(c.created_at)
+            for day in range(st, endTime + 1):
+                if not self.isValidDTScore(day):
                     continue
 
-                if day not in info:
-                    info[day] = 0
+                if day in ci[c]["content"].keys():
+                    messages = ci[c]["content"][day]
+                    if day == 0:
+                        continue
+
+                    if day not in info:
+                        info[day] = 0
                 
-                if day >= startTime and day <= endTime:
                     # sort through messages
                     if keyWords[1] == "all":
                         # minor opt, just get len of all messages since we count them all
                         info[day] += len(messages)
                     else:
                         # loop through all messages, check if the sender is correct
-                        for message in messages:
-                            if message["author"] in usersToCheck:
-                                info[day] += 1
-        
-        names = [self.strDT(self.cleanUTC(t)) for t in info.keys()]
+                        if keyWords[2] != 'all':
+                            info[day] += 1
+                        else:
+                            for message in messages:
+                                if message["author"] == userToCheck:
+                                    info[day] += 1
+                else:
+                    if day not in info:
+                        info[day] = 0
+
+        if len(info) < 25:
+            names = [str(self.cleanUTC(t)) for t in info.keys()]
+        else:
+            names = [i for i in range(len(info))]
         values = list(info.values())
 
         plt.figure(1, figsize=(12, 6))
 
         plt.subplot(131)
         plt.subplots_adjust(right = 3)
-        plt.bar(names, values)
+        plt.scatter(names, values)
         plt.suptitle('Data')
 
         plt.savefig(str(m.guild.id) + '.png', bbox_inches = 'tight')
@@ -177,6 +192,14 @@ class _client(discord.Client):
     
     def strDT(self, dt):
         return f"{dt.day}/{dt.month}/{str(dt.year)[2:]}"
+    
+    def isValidDTScore(self, dtScore):
+        # sue me
+        try:
+            self.cleanUTC(dtScore)
+            return True
+        except:
+            return False
 
     async def help(self, m, keyWords):
         answers = {

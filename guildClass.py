@@ -76,6 +76,12 @@ class guild():
                 await self.initNewChannelInfo(c)
 
     async def initNewChannelInfo(self, c):
+        # no msgs have been sent in channel
+        try:
+            await c.fetch_message(c.last_message_id)
+        except:
+            return
+
         # init base structure
         self.channelInfo[c] = {
             "lastMessageTime" : self.dtScore((await c.fetch_message(c.last_message_id)).created_at),
