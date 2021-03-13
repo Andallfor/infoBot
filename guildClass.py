@@ -1,4 +1,3 @@
-import discord
 import datetime
 import json
 # possible opt: switch lists to sets?

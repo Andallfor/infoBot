@@ -1,9 +1,10 @@
 import discord
 import os
 import sys
-import timeit
 import json
 import guildClass
+import matplotlib.pyplot as plt
+import datetime
 
 started = False
 
@@ -66,10 +67,9 @@ class _client(discord.Client):
         '''
         Avaliable commands:
         \help
-        \history user channel startTime endTime sort
+        \history user channel startTime endTime
             user, channel can be all
             startTime, endTime can be default
-            sort can be totalMessages, and userChange
         \ratio channel phrase
         \init
         \end
@@ -81,7 +81,7 @@ class _client(discord.Client):
         if keyWords[0] == '\\help':
             await self.help(message, keyWords)
         elif keyWords[0] == '\\history':
-            pass
+            await self.history(message, keyWords)
         elif keyWords[0] == '\\ratio':
             await self.ratio(message, keyWords)
         elif keyWords[0] == '\\init':
@@ -94,14 +94,88 @@ class _client(discord.Client):
         else:
             await message.channel.send(f"Did not recognize command '{keyWords[0]}'\nUse \\help to see a list of all possible commands")
 
+    async def history(self, m, keyWords):
+        if len(keyWords) < 3 and len(keyWords) <= 5:
+            await m.channel.send("Incorrect number of arguments recieved")
+            return
+        
+        usersToCheck = []
+        channelsToCheck = []
+        startTime = 0
+        endTime = self.dtScore(datetime.datetime.now())
+
+        # get user
+        if keyWords[1] == "all":
+            usersToCheck = [u.id for u in m.guild.members]
+        else:
+            usersToCheck = m.mentions[0].id
+
+        # get channel
+        if keyWords[2] == "all":
+            channelsToCheck = m.guild.text_channels
+        else:
+            channelsToCheck = m.channel_mentions[0]
+
+        # get start time
+        if len(keyWords) >= 4 and keyWords[4] != "0":
+            startTime = self.inputToDTScore(keyWords[4])
+
+        # get end time
+        if len(keyWords) == 5 and keyWords[5] != "0":
+            endTime = self.inputToDTScore(keyWords[5])
+        
+        if (endTime < started):
+            await m.channel.send("Recived end time was less then start time")
+            return
+        
+        await m.channel.send("Gathering data...")
+        ci = self.guildInfo[m.guild.id].channelInfo
+        info = dict()
+        for c in channelsToCheck:
+            for (day, messages) in ci[c]["content"].items():
+                if day == 0:
+                    continue
+
+                if day not in info:
+                    info[day] = 0
+                
+                if day >= startTime and day <= endTime:
+                    # sort through messages
+                    if keyWords[1] == "all":
+                        # minor opt, just get len of all messages since we count them all
+                        info[day] += len(messages)
+                    else:
+                        # loop through all messages, check if the sender is correct
+                        for message in messages:
+                            if message["author"] in usersToCheck:
+                                info[day] += 1
+        
+        names = [self.strDT(self.cleanUTC(t)) for t in info.keys()]
+        values = list(info.values())
+
+        plt.figure(1, figsize=(12, 6))
+
+        plt.subplot(131)
+        plt.subplots_adjust(right = 3)
+        plt.bar(names, values)
+        plt.suptitle('Data')
+        plt.show()
+    
+    def inputToDTScore(self, phrase):
+        parts = phrase.split('-')
+        return datetime.datetime(int(parts[0]), int(parts[1]), int(parts[2]))
+    
+    def strDT(self, dt):
+        return f"{dt.day}/{dt.month}/{str(dt.year)[2:]}"
+
     async def help(self, m, keyWords):
         answers = {
             "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, init, end, overview, sort",
-            "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime sort\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages.",
+            "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time, or use 0.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages, or use 0.",
             "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Phrase: No particular format, but cannot contain the character '\\'. **Non-optional**",
             "init" : "Restarts the bot.\nUsage: \\init",
             "end" : "Terminates the bot.\nUsage: \\end",
-            "sort" : "TBD",
+            "sort" : "Not yet implemented",
             "overview" : r"This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).\nTo see the source code, see https://github.com/Andallfor/infoBot."
         }
 
@@ -184,6 +258,22 @@ class _client(discord.Client):
         for m in msgs:
             s += os.sep + str(m)
         return s
+    
+    # should throw this into a seperate class
+    def dtScore(self, dt):
+        return int((dt.year * 10_000) + (dt.month * 100) + dt.day)
+
+    def cleanUTC(self, score):
+        return datetime.datetime(year = self.year(score), month = self.month(score), day = self.day(score))
+    
+    def year(self, score):
+        return int(score / 10_000)
+    
+    def month(self, score):
+        return int((score - (self.year(score) * 10_000)) / 100)
+    
+    def day(self, score):
+        return int(score - ((self.year(score) * 10_000 ) + (self.month(score) * 100)))
 
 intents = discord.Intents.default()
 intents.members = True
