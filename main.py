@@ -7,6 +7,7 @@ from discord import message
 from discord.embeds import Embed
 import guildClass
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdt
 import datetime
 import io
 
@@ -177,18 +178,16 @@ class _client(discord.Client):
                     if day not in info:
                         info[day] = 0
 
-        if len(info) < 25:
-            names = [str(self.cleanUTC(t)) for t in info.keys()]
-        else:
-            names = [i for i in range(len(info))]
+        
+        names = [mdt.date2num(self.cleanUTC(t)) for t in info.keys()]
         values = list(info.values())
 
-        plt.figure(1, figsize=(12, 6))
+        dateForm = mdt.DateFormatter("%m-%y")
+        fig, ax = plt.subplots(figsize = (18, 18))
 
-        plt.subplot(131)
-        plt.subplots_adjust(right = 3)
-        plt.scatter(names, values)
-        plt.suptitle('Data')
+        ax.bar(names, values)
+        ax.set(xlabel = "Date", ylabel = "Messages Sent (month - year)")
+        ax.xaxis.set_major_formatter(dateForm)
 
         plt.savefig(str(m.guild.id) + '.png', bbox_inches = 'tight')
         plt.close()
