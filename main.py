@@ -74,7 +74,7 @@ class _client(discord.Client):
             user, channel can be all
             startTime, endTime can be default
         \ratio channel phrase
-        \init
+        \reset
         \end
         '''
 
@@ -87,9 +87,13 @@ class _client(discord.Client):
             await self.history(message, keyWords)
         elif keyWords[0] == '\\ratio':
             await self.ratio(message, keyWords)
-        elif keyWords[0] == '\\init':
+        elif keyWords[0] == '\\reset':
             started = False
             await message.channel.send("Restarting...")
+            try:
+                os.remove(self.joinQ([str(message.guild.id) + '.json']))
+            except:
+                pass
             await self.on_ready()
             await message.channel.send("Restarted")
         elif keyWords[0] == '\\end':
@@ -155,12 +159,9 @@ class _client(discord.Client):
                         info[day] += len(messages)
                     else:
                         # loop through all messages, check if the sender is correct
-                        if keyWords[2] != 'all':
-                            info[day] += 1
-                        else:
-                            for message in messages:
-                                if message["author"] == userToCheck:
-                                    info[day] += 1
+                        for message in messages:
+                            if message["author"] == userToCheck:
+                                info[day] += 1
                 else:
                     if day not in info:
                         info[day] = 0
@@ -203,10 +204,10 @@ class _client(discord.Client):
 
     async def help(self, m, keyWords):
         answers = {
-            "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, init, end, overview, sort",
+            "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, reset, end, overview, sort",
             "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time, or use 0.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages, or use 0.",
             "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Phrase: No particular format, but cannot contain the character '\\'. **Non-optional**",
-            "init" : "Restarts the bot.\nUsage: \\init",
+            "reset" : "Restarts the bot, and also deletes all corresponding guild information.\nUsage: \\reset",
             "end" : "Terminates the bot.\nUsage: \\end",
             "sort" : "Not yet implemented",
             "overview" : r"This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).\nTo see the source code, see https://github.com/Andallfor/infoBot."
