@@ -2,9 +2,12 @@ import discord
 import os
 import sys
 import json
+
+from discord.embeds import Embed
 import guildClass
 import matplotlib.pyplot as plt
 import datetime
+import io
 
 started = False
 
@@ -108,13 +111,13 @@ class _client(discord.Client):
         if keyWords[1] == "all":
             usersToCheck = [u.id for u in m.guild.members]
         else:
-            usersToCheck = m.mentions[0].id
+            usersToCheck = [m.mentions[0].id]
 
         # get channel
         if keyWords[2] == "all":
             channelsToCheck = m.guild.text_channels
         else:
-            channelsToCheck = m.channel_mentions[0]
+            channelsToCheck = [m.channel_mentions[0]]
 
         # get start time
         if len(keyWords) >= 4 and keyWords[4] != "0":
@@ -159,7 +162,14 @@ class _client(discord.Client):
         plt.subplots_adjust(right = 3)
         plt.bar(names, values)
         plt.suptitle('Data')
-        plt.show()
+
+        plt.savefig(str(m.guild.id) + '.png', bbox_inches = 'tight')
+        plt.close()
+
+        file = discord.File(str(m.guild.id) + '.png', filename = 'data.png')
+        await m.channel.send(file = file)
+
+        os.remove(str(m.guild.id) + '.png')
     
     def inputToDTScore(self, phrase):
         parts = phrase.split('-')
