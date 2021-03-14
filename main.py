@@ -216,12 +216,11 @@ class _client(discord.Client):
 
     async def help(self, m, keyWords):
         answers = {
-            "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, reset, end, overview, sort",
+            "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, reset, end, overview",
             "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time, or use 0.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages, or use 0.",
-            "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Phrase: No particular format, but cannot contain the character '\\'. **Non-optional**",
+            "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel format phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Format: Can be default, nonCap, discord, or nonCapDiscord. Tells the program how to determine if a phrase is within a message. **Non-optional**.\n       - Default: Naively searches for a phrase. Is case-sensitive, and will include the result if it is found within another word.\n       - NonCap: Similar to default, however it is case-insensitive.\n       - Discord: Attempts to match the search to result discord provides in their search bar. Is case-sensetive.\n       - NonCapDiscord: Similar to discord, however it is case-insensitive.\n    Phrase: No particular format, but cannot contain a backslash. **Non-optional**.",
             "reset" : "Restarts the bot, and also deletes all corresponding guild information.\nUsage: \\reset",
             "end" : "Terminates the bot.\nUsage: \\end",
-            "sort" : "Not yet implemented",
             "overview" : r'''This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).
 To see the source code, see https://github.com/Andallfor/infoBot.'''
         }
@@ -255,9 +254,15 @@ To see the source code, see https://github.com/Andallfor/infoBot.'''
 
         await m.channel.send("Gathering data...")
 
-        phrase = keyWords[2]
-        if len(keyWords) >= 3:
-            for continuedPhrase in m.content.split(' ')[3:]:
+        if keyWords[2] in ["default", "noncap", "discord", "noncapdiscord"]:
+            frmat = keyWords[2]
+        else:
+            await m.channel.send(f'Unable to read given format "{keyWords[2]}"')
+            return
+
+        phrase = keyWords[3]
+        if len(keyWords) >= 4:
+            for continuedPhrase in m.content.split(' ')[4:]:
                 phrase += ' ' + continuedPhrase
         users = dict()
         total = 0
@@ -268,7 +273,7 @@ To see the source code, see https://github.com/Andallfor/infoBot.'''
             channelsToSearch = m.guild.text_channels
 
             for c in channelsToSearch:
-                _u, _t = self.singleChannelSearch(phrase, g, c)
+                _u, _t = self.singleChannelSearch(phrase, g, c, frmat)
                 for (key, value) in _u.items():
                     if key in users:
                         users[key] += value
@@ -279,7 +284,7 @@ To see the source code, see https://github.com/Andallfor/infoBot.'''
             # search for phrase in single channel
             if len(m.channel_mentions) != 1:
                 await m.channel.send("Unable to parse given channels")
-            users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id], m.channel_mentions[0])
+            users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id], m.channel_mentions[0], frmat)
             
         messageToSend = f'Found "{phrase}" a total of {total} times.\n'
 
@@ -306,17 +311,52 @@ To see the source code, see https://github.com/Andallfor/infoBot.'''
 
         os.remove(str(m.guild.id) + '-pie.png')
 
-    def singleChannelSearch(self, phrase, g, c):
+    def singleChannelSearch(self, phrase, g, c, _frmat):
         users = dict()
         total = 0
+        lLetters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+        cLetters = [l.upper() for l in lLetters]
+        letters = lLetters + cLetters
+        frmat = str(_frmat)
 
         for day in g.channelInfo[c]["content"].values():
             for message in day:
-                if phrase in message["content"]:
-                    # dont count self references
-                    if message["author"] == self.user.id:
-                        continue
+                # dont count self references
+                if message["author"] == self.user.id:
+                    continue
 
+                msg = str(message["content"])
+                # auto lower case all messages if needed
+                if _frmat in ["noncap", "noncapdiscord"]:
+                    phrase = phrase.lower()
+                    # make sure they are not linked
+                    msg = str(message["content"].lower())
+                    if _frmat == "noncap":
+                        frmat = "default"
+                    else:
+                        frmat = "discord"
+
+                contains = False
+                if frmat == "default":
+                    if phrase in msg:
+                        contains = True
+                elif frmat == "discord":
+                    index = msg.find(phrase)
+                    if index != -1:
+                        contains = True
+
+                        # is the start of the string, so nothing is before it
+                        if index != 0:
+                            if msg[index - 1] in letters:
+                                contains = False
+                        
+                        # if end of phrase is not at end of message
+                        if index + len(phrase) != len(msg):
+                            if msg[index + 1] in letters:
+                                contains = False
+
+
+                if contains:
                     if message["author"] not in users:
                         users[message["author"]] = 0
                     users[message["author"]] += 1
