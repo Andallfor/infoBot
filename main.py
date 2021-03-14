@@ -137,13 +137,13 @@ class _client(discord.Client):
                 return
 
         # get start time
-        if len(keyWords) >= 4 and keyWords[4] != "0":
-            startTime = self.inputToDTScore(keyWords[4])
+        if len(keyWords) > 3 and keyWords[3] != "0":
+            startTime = self.dtScore(self.inputToDTScore(keyWords[3]))
 
         # get end time
-        if len(keyWords) == 5 and keyWords[5] != "0":
-            endTime = self.inputToDTScore(keyWords[5])
-        
+        if len(keyWords) > 4 and keyWords[4] != "0":
+            endTime = self.dtScore(self.inputToDTScore(keyWords[4]))
+
         if (endTime < started):
             await m.channel.send("Recived end time was less then start time")
             return
@@ -198,8 +198,10 @@ class _client(discord.Client):
         os.remove(str(m.guild.id) + '.png')
     
     def inputToDTScore(self, phrase):
+        print(phrase)
         parts = phrase.split('-')
-        return datetime.datetime(int(parts[0]), int(parts[1]), int(parts[2]))
+        print(parts)
+        return datetime.datetime(day = int(parts[0]), month = int(parts[1]), year = int(parts[2]))
     
     def strDT(self, dt):
         return f"{dt.day}/{dt.month}/{str(dt.year)[2:]}"
