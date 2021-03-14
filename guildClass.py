@@ -98,7 +98,6 @@ class guild():
 
         # fill in values
         allMessages = await c.history(limit = None).flatten()
-        print(f"{c.name} : {len(allMessages)}")
 
         for m in allMessages:
             if int(self.dtScore(m.created_at)) not in self.channelInfo[c]["content"]:

@@ -189,13 +189,13 @@ class _client(discord.Client):
         ax.set(xlabel = "Date", ylabel = "Messages Sent (month - year)")
         ax.xaxis.set_major_formatter(dateForm)
 
-        plt.savefig(str(m.guild.id) + '.png', bbox_inches = 'tight')
+        plt.savefig(str(m.guild.id) + '-history.png', bbox_inches = 'tight')
         plt.close()
 
-        file = discord.File(str(m.guild.id) + '.png', filename = 'data.png')
+        file = discord.File(str(m.guild.id) + '-history.png', filename = 'data.png')
         await m.channel.send(file = file)
 
-        os.remove(str(m.guild.id) + '.png')
+        os.remove(str(m.guild.id) + '-history.png')
     
     def inputToDTScore(self, phrase):
         print(phrase)
@@ -254,7 +254,10 @@ class _client(discord.Client):
 
         await m.channel.send("Gathering data...")
 
-        phrase = ''.join(m.content.split(' ')[2:])
+        phrase = keyWords[2]
+        if len(keyWords) >= 3:
+            for continuedPhrase in m.content.split(' ')[3:]:
+                phrase += ' ' + continuedPhrase
         users = dict()
         total = 0
         g = self.guildInfo[m.guild.id]
@@ -277,28 +280,31 @@ class _client(discord.Client):
                 await m.channel.send("Unable to parse given channels")
             users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id], m.channel_mentions[0])
             
-
         messageToSend = f'Found "{phrase}" a total of {total} times.\n'
-        i = 0
-        printLines = 0
 
         sortedUsers = sorted(users, key = users.get, reverse = True)
 
-        for user in sortedUsers:
-            if printLines >= 10:
-                break
+        names = sortedUsers[:min(len(sortedUsers), 10)]
+        values = [users[user] for user in names]
+        names = ["Unknown" if self.get_user(user) == None else self.get_user(user).display_name for user in names]
 
-            times = users[user]
-            u = self.get_user(int(user))
-            u = "Unknown" if u == None else u.display_name
-            messageToSend += f"{u}: {times} ({round((times/total) * 100, 2)}%)\n"
-            i += times
-            printLines += 1
-        
-        await m.channel.send(messageToSend)
-        if i != total:
-            await m.channel.send(f"Deleted messages: {total - i} ({round(((i - total)/total) * 100, 2)}%)")
-    
+        fig = plt.figure(figsize = (9, 9))
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.axis('equal')
+
+        p, tx, autotexts = ax.pie(values, labels = names, autopct = '%1.2f%%')
+
+        for i, a in enumerate(autotexts):
+            a.set_text(f'{values[i]} ({round(values[i] / total, 2)}%)')
+
+        plt.savefig(str(m.guild.id) + '-pie.png', bbox_inches = 'tight')
+        plt.close()
+
+        file = discord.File(str(m.guild.id) + '-pie.png', filename = 'data.png')
+        await m.channel.send(messageToSend, file = file)
+
+        os.remove(str(m.guild.id) + '-pie.png')
+
     def singleChannelSearch(self, phrase, g, c):
         users = dict()
         total = 0
