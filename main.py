@@ -222,7 +222,8 @@ class _client(discord.Client):
             "reset" : "Restarts the bot, and also deletes all corresponding guild information.\nUsage: \\reset",
             "end" : "Terminates the bot.\nUsage: \\end",
             "sort" : "Not yet implemented",
-            "overview" : r"This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).\nTo see the source code, see https://github.com/Andallfor/infoBot."
+            "overview" : r'''This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).
+To see the source code, see https://github.com/Andallfor/infoBot.'''
         }
 
         message = answers["default"]
