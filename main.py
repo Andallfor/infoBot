@@ -301,7 +301,7 @@ To see the source code, see https://github.com/Andallfor/infoBot.'''
         p, tx, autotexts = ax.pie(values, labels = names, autopct = '%1.2f%%')
 
         for i, a in enumerate(autotexts):
-            a.set_text(f'{values[i]} ({round(values[i] / total, 2)}%)')
+            a.set_text(f'{values[i]} ({round(values[i] / total, 2) * 100}%)')
 
         plt.savefig(str(m.guild.id) + '-pie.png', bbox_inches = 'tight')
         plt.close()
