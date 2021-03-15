@@ -3,8 +3,7 @@ import os
 import sys
 import json
 from discord import message
-
-from discord.embeds import Embed
+import util
 import guildClass
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdt
@@ -59,7 +58,7 @@ class _client(discord.Client):
     async def on_message(self, message):
         global started
 
-        if not started or message.author == self.user or len(message.content) == 0:
+        if not started or message.author == self.user:
             return
 
         # save msg
@@ -114,18 +113,22 @@ class _client(discord.Client):
             print(f"{channel.name} : {total}")
 
     async def history(self, m, keyWords):
-        if len(keyWords) < 3 and len(keyWords) <= 5:
+        if len(keyWords) < 3:
             await m.channel.send("Incorrect number of arguments recieved")
             return
         
         userToCheck = 0
         channelsToCheck = []
         startTime = 0
-        endTime = self.dtScore(datetime.datetime.now())
+        endTime = util.dtScore(datetime.datetime.now())
 
         # get user
-        if keyWords[1] != "all":
-            userToCheck = m.mentions[0].id
+        try:
+            if keyWords[1] != "all":
+                userToCheck = m.mentions[0].id
+        except:
+            m.channel.send(f'Did not recognize user "{keyWords[1]}"')
+            return
 
         # get channel
         if keyWords[2] == "all":
@@ -137,24 +140,38 @@ class _client(discord.Client):
                 return
 
         # get start time
-        if len(keyWords) > 3 and keyWords[3] != "0":
-            startTime = self.dtScore(self.inputToDTScore(keyWords[3]))
+        try:
+            if len(keyWords) > 3 and keyWords[3] != "0":
+                startTime = util.dtScore(util.inputToDTScore(keyWords[3]))
+        except:
+            m.channel.send(f'Did not recognize date "{keyWords[3]}"')
+            return
 
         # get end time
-        if len(keyWords) > 4 and keyWords[4] != "0":
-            endTime = self.dtScore(self.inputToDTScore(keyWords[4]))
+        try:
+            if len(keyWords) > 4 and keyWords[4] != "0":
+                endTime = util.dtScore(util.inputToDTScore(keyWords[4]))
+        except:
+            m.channel.send(f'Did not recognize date "{keyWords[4]}"')
 
         if (endTime < started):
             await m.channel.send("Recived end time was less then start time")
             return
         
+        # get sort
+        #if len(keyWords) > 5:
+        #    if keyWords[5] in ["messages", "phrase", ""]
+
+
+
+
         await m.channel.send("Gathering data...")
         ci = self.guildInfo[m.guild.id].channelInfo
         info = dict()
         for c in channelsToCheck:
-            st = startTime if startTime != 0 else self.dtScore(c.created_at)
+            st = startTime if startTime != 0 else util.dtScore(c.created_at)
             for day in range(st, endTime + 1):
-                if not self.isValidDTScore(day):
+                if not util.isValidDTScore(day):
                     continue
 
                 if day in ci[c]["content"].keys():
@@ -179,7 +196,7 @@ class _client(discord.Client):
                         info[day] = 0
 
         
-        names = [mdt.date2num(self.cleanUTC(t)) for t in info.keys()]
+        names = [mdt.date2num(util.cleanUTC(t)) for t in info.keys()]
         values = list(info.values())
 
         dateForm = mdt.DateFormatter("%m-%y")
@@ -196,23 +213,6 @@ class _client(discord.Client):
         await m.channel.send(file = file)
 
         os.remove(str(m.guild.id) + '-history.png')
-    
-    def inputToDTScore(self, phrase):
-        print(phrase)
-        parts = phrase.split('-')
-        print(parts)
-        return datetime.datetime(day = int(parts[0]), month = int(parts[1]), year = int(parts[2]))
-    
-    def strDT(self, dt):
-        return f"{dt.day}/{dt.month}/{str(dt.year)[2:]}"
-    
-    def isValidDTScore(self, dtScore):
-        # sue me
-        try:
-            self.cleanUTC(dtScore)
-            return True
-        except:
-            return False
 
     async def help(self, m, keyWords):
         answers = {
@@ -221,8 +221,7 @@ class _client(discord.Client):
             "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel format phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Format: Can be default, nonCap, discord, or nonCapDiscord. Tells the program how to determine if a phrase is within a message. **Non-optional**.\n       - Default: Naively searches for a phrase. Is case-sensitive, and will include the result if it is found within another word.\n       - NonCap: Similar to default, however it is case-insensitive.\n       - Discord: Attempts to match the search to result discord provides in their search bar. Is case-sensetive.\n       - NonCapDiscord: Similar to discord, however it is case-insensitive.\n    Phrase: No particular format, but cannot contain a backslash. **Non-optional**.",
             "reset" : "Restarts the bot, and also deletes all corresponding guild information.\nUsage: \\reset",
             "end" : "Terminates the bot.\nUsage: \\end",
-            "overview" : r'''This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).
-To see the source code, see https://github.com/Andallfor/infoBot.'''
+            "overview" : r'''This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages). To see the source code, see https://github.com/Andallfor/infoBot.'''
         }
 
         message = answers["default"]
@@ -241,9 +240,9 @@ To see the source code, see https://github.com/Andallfor/infoBot.'''
     def internalDelete(self, m):
         g = self.guildInfo[m.guild.id]
         i = 0
-        for message in g.channelInfo["content"][g.datetimeScore(m.created_at)]:
+        for message in g.channelInfo["content"][util.dtScore(m.created_at)]:
             if message.id == m.id:
-                g.channelInfo["content"][g.datetimeScore(m.created_at)].pop(i)
+                g.channelInfo["content"][util.dtScore(m.created_at)].pop(i)
             i += 1
 
     async def ratio(self, m, keyWords):
@@ -369,18 +368,6 @@ To see the source code, see https://github.com/Andallfor/infoBot.'''
         for m in msgs:
             s += os.sep + str(m)
         return s
-    
-    # should throw this into a seperate class
-    def dtScore(self, dt):
-        return int((dt.year * 10_000) + (dt.month * 100) + dt.day)
-    def cleanUTC(self, score):
-        return datetime.datetime(year = self.year(score), month = self.month(score), day = self.day(score))
-    def year(self, score):
-        return int(score / 10_000)
-    def month(self, score):
-        return int((score - (self.year(score) * 10_000)) / 100)
-    def day(self, score):
-        return int(score - ((self.year(score) * 10_000 ) + (self.month(score) * 100)))
 
 intents = discord.Intents.default()
 intents.members = True
