@@ -1,6 +1,9 @@
 import discord
 import datetime
 
+lLetters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+cLetters = [l.upper() for l in lLetters]
+letters = lLetters + cLetters
 
 def dtScore(dt):
     return int((dt.year * 10_000) + (dt.month * 100) + dt.day)
@@ -40,3 +43,36 @@ def isValidDTScore(dtScore):
         return True
     except:
         return False
+
+def getFormat(frmat, phrase, match):
+    # auto lower case all messages if needed
+    msg = str(match)
+    if frmat in ["noncap", "noncapdiscord"]:
+        phrase = phrase.lower()
+        msg = match.lower()
+
+        if frmat == "noncap":
+            frmat = "default"
+        else:
+            frmat = "discord"
+
+    contains = False
+    if frmat == "default":
+        if phrase in msg:
+            contains = True
+    elif frmat == "discord":
+        index = msg.find(phrase)
+        if index != -1:
+            contains = True
+
+            # is the start of the string, so nothing is before it
+            if index != 0:
+                if msg[index - 1] in letters:
+                    contains = False
+            
+            # if end of phrase is not at end of message
+            if index + len(phrase) != len(msg):
+                if msg[index + 1] in letters:
+                    contains = False
+    
+    return contains

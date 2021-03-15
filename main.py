@@ -159,11 +159,31 @@ class _client(discord.Client):
             return
         
         # get sort
-        #if len(keyWords) > 5:
-        #    if keyWords[5] in ["messages", "phrase", ""]
+        sort = "messages"
+        try:
+            if len(keyWords) > 5:
+                if keyWords[5] in ["messages", "phrase", "pins", "users"]:
+                    sort = keyWords[5]
 
+                    # if given a phrase, a format must also be given
+                    if sort == "phrase":
+                        try:
+                            if keyWords[6] in ["noncap", "default", 'discord', 'noncapdiscord']:
+                                frmat = keyWords[6]
+                            else:
+                                m.channel.send(f'Did not recognize format "{keyWords[6]}"')
+                                return
+                        except:
+                            m.channel.send(f'Did not recieve format')
+                            return
 
-
+                        phrase = keyWords[7]
+                        if len(keyWords) >= 8:
+                            for continuedPhrase in m.content.split(' ')[8:]:
+                                phrase += ' ' + continuedPhrase
+        except:
+            m.channel.send(f'Did not recognize sort "{keyWords[5]}"')
+            return
 
         await m.channel.send("Gathering data...")
         ci = self.guildInfo[m.guild.id].channelInfo
@@ -181,16 +201,26 @@ class _client(discord.Client):
 
                     if day not in info:
                         info[day] = 0
-                
-                    # sort through messages
-                    if keyWords[1] == "all":
-                        # minor opt, just get len of all messages since we count them all
-                        info[day] += len(messages)
+
+                    # messages
+                    if sort == "messages":
+                        # sort through messages
+                        if keyWords[1] == "all":
+                            # minor opt, just get len of all messages since we count them all
+                            info[day] += len(messages)
+                        else:
+                            # loop through all messages, check if the sender is correct
+                            for message in messages:
+                                if message["author"] == userToCheck:
+                                    info[day] += 1
+                    elif sort == "phrase":
+                        pass
+                    elif sort == "pins":
+                        pass
                     else:
-                        # loop through all messages, check if the sender is correct
-                        for message in messages:
-                            if message["author"] == userToCheck:
-                                info[day] += 1
+                        pass
+
+
                 else:
                     if day not in info:
                         info[day] = 0
@@ -263,16 +293,16 @@ class _client(discord.Client):
         if len(keyWords) >= 4:
             for continuedPhrase in m.content.split(' ')[4:]:
                 phrase += ' ' + continuedPhrase
+        
         users = dict()
         total = 0
-        g = self.guildInfo[m.guild.id]
 
         if keyWords[1].lower() == "all":
             # search for phrase in all channels
             channelsToSearch = m.guild.text_channels
 
             for c in channelsToSearch:
-                _u, _t = self.singleChannelSearch(phrase, g, c, frmat)
+                _u, _t = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id].channelInfo[c], frmat)
                 for (key, value) in _u.items():
                     if key in users:
                         users[key] += value
@@ -283,7 +313,7 @@ class _client(discord.Client):
             # search for phrase in single channel
             if len(m.channel_mentions) != 1:
                 await m.channel.send("Unable to parse given channels")
-            users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id], m.channel_mentions[0], frmat)
+            users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id][m.channel_mentions[0].id], frmat)
             
         messageToSend = f'Found "{phrase}" a total of {total} times.\n'
 
@@ -310,50 +340,17 @@ class _client(discord.Client):
 
         os.remove(str(m.guild.id) + '-pie.png')
 
-    def singleChannelSearch(self, phrase, g, c, _frmat):
+    def singleChannelSearch(self, phrase, ci, frmat):
         users = dict()
         total = 0
-        lLetters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
-        cLetters = [l.upper() for l in lLetters]
-        letters = lLetters + cLetters
-        frmat = str(_frmat)
 
-        for day in g.channelInfo[c]["content"].values():
+        for day in ci["content"].values():
             for message in day:
                 # dont count self references
                 if message["author"] == self.user.id:
                     continue
 
-                msg = str(message["content"])
-                # auto lower case all messages if needed
-                if _frmat in ["noncap", "noncapdiscord"]:
-                    phrase = phrase.lower()
-                    # make sure they are not linked
-                    msg = str(message["content"].lower())
-                    if _frmat == "noncap":
-                        frmat = "default"
-                    else:
-                        frmat = "discord"
-
-                contains = False
-                if frmat == "default":
-                    if phrase in msg:
-                        contains = True
-                elif frmat == "discord":
-                    index = msg.find(phrase)
-                    if index != -1:
-                        contains = True
-
-                        # is the start of the string, so nothing is before it
-                        if index != 0:
-                            if msg[index - 1] in letters:
-                                contains = False
-                        
-                        # if end of phrase is not at end of message
-                        if index + len(phrase) != len(msg):
-                            if msg[index + 1] in letters:
-                                contains = False
-
+                contains = util.getFormat(frmat, phrase, message["content"])
 
                 if contains:
                     if message["author"] not in users:
