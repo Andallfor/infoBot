@@ -125,6 +125,10 @@ class _client(discord.Client):
         # get user
         try:
             if keyWords[1] != "all":
+                if len(keyWords) > 5:
+                    if keyWords[5] == "uniqueusers":
+                        await m.channel.send('Detected sort "UniqueUsers". Setting users to "all".')
+                        userToCheck = 0
                 userToCheck = m.mentions[0].id
         except:
             m.channel.send(f'Did not recognize user "{keyWords[1]}"')
@@ -132,6 +136,10 @@ class _client(discord.Client):
 
         # get channel
         if keyWords[2] == "all":
+            if len(keyWords) > 5:
+                if keyWords[5] == "uniqueusers":
+                    await m.channel.send('Detected sort "UniqueUsers". Channel must a specific channel, where invite messages are sent.')
+                    return
             channelsToCheck = list(self.guildInfo[m.guild.id].channelInfo.keys())
         else:
             channelsToCheck = [m.channel_mentions[0]]
@@ -162,7 +170,7 @@ class _client(discord.Client):
         sort = "messages"
         try:
             if len(keyWords) > 5:
-                if keyWords[5] in ["messages", "phrase", "pins", "users"]:
+                if keyWords[5] in ["messages", "phrase", "pins", "users", "uniqueusers"]:
                     sort = keyWords[5]
 
                     # if given a phrase, a format must also be given
@@ -181,6 +189,9 @@ class _client(discord.Client):
                         if len(keyWords) >= 8:
                             for continuedPhrase in m.content.split(' ')[8:]:
                                 phrase += ' ' + continuedPhrase
+                else:
+                    m.channel.send(f'Did not recognize sort "{keyWords[5]}"')
+                    return    
         except:
             m.channel.send(f'Did not recognize sort "{keyWords[5]}"')
             return
@@ -188,6 +199,7 @@ class _client(discord.Client):
         await m.channel.send("Gathering data...")
         ci = self.guildInfo[m.guild.id].channelInfo
         info = dict()
+        seen = [] # only used if sort == "uniqueuser"
         for c in channelsToCheck:
             st = startTime if startTime != 0 else util.dtScore(c.created_at)
             for day in range(st, endTime + 1):
@@ -214,23 +226,37 @@ class _client(discord.Client):
                                 if message["author"] == userToCheck:
                                     info[day] += 1
                     elif sort == "phrase":
-                        pass
+                        for message in messages:
+                            if util.getFormat(frmat, phrase, message["content"]):
+                                info[day] += 1
                     elif sort == "pins":
-                        pass
+                        for message in messages:
+                            if message["type"][1] == 6:
+                                info[day] += 1
+                    elif sort == "uniqueusers":
+                        for message in messages:
+                            if message["author"] not in seen and self.get_user(message["author"]) != None:
+                                seen.append(message["author"])
+                        info[day] = int(len(seen))
                     else:
-                        pass
-
-
+                        # user join (non-unique)
+                        for message in messages:
+                            if message["type"][1] == 7:
+                                info[day] += 1
                 else:
                     if day not in info:
                         info[day] = 0
+                    if sort == "uniqueusers":
+                        info[day] = int(len(seen))
 
+                
+                    
         
         names = [mdt.date2num(util.cleanUTC(t)) for t in info.keys()]
         values = list(info.values())
 
         dateForm = mdt.DateFormatter("%m-%y")
-        fig, ax = plt.subplots(figsize = (18, 18))
+        fig, ax = plt.subplots(figsize = (26, 14))
 
         ax.bar(names, values)
         ax.set(xlabel = "Date", ylabel = "Messages Sent (month - year)")
@@ -249,7 +275,7 @@ class _client(discord.Client):
             "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, reset, end, overview",
             "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time, or use 0.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages, or use 0.",
             "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel format phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Format: Can be default, nonCap, discord, or nonCapDiscord. Tells the program how to determine if a phrase is within a message. **Non-optional**.\n       - Default: Naively searches for a phrase. Is case-sensitive, and will include the result if it is found within another word.\n       - NonCap: Similar to default, however it is case-insensitive.\n       - Discord: Attempts to match the search to result discord provides in their search bar. Is case-sensetive.\n       - NonCapDiscord: Similar to discord, however it is case-insensitive.\n    Phrase: No particular format, but cannot contain a backslash. **Non-optional**.",
-            "reset" : "Restarts the bot, and also deletes all corresponding guild information.\nUsage: \\reset",
+            "reset" : "Restarts the bot, and also deletes all corresponding guild information. WARNING: MAY TAKE A LONG TIME.\nUsage: \\reset",
             "end" : "Terminates the bot.\nUsage: \\end",
             "overview" : r'''This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages). To see the source code, see https://github.com/Andallfor/infoBot.'''
         }
@@ -293,7 +319,7 @@ class _client(discord.Client):
         if len(keyWords) >= 4:
             for continuedPhrase in m.content.split(' ')[4:]:
                 phrase += ' ' + continuedPhrase
-        
+
         users = dict()
         total = 0
 
