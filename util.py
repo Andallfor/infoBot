@@ -80,7 +80,7 @@ def getFormat(frmat, phrase, match):
     
     return contains
 
-def quickPlot(data, labels, size, g, file, graph, isDate = False):
+def quickPlot(data, labels, size, g, fileName, graph, isDate = False):
     # returns file
     fig, ax = plt.subplots(figsize = size)
 
@@ -88,18 +88,38 @@ def quickPlot(data, labels, size, g, file, graph, isDate = False):
         ax.bar(data[0], data[1], width = 1)
     elif graph == "line":
         ax.plot(data[0], data[1])
-        
+
     ax.set(xlabel = labels[0], ylabel = labels[1])
 
     if isDate:
         dateForm = mdt.DateFormatter("%d-%m-%y")
         ax.xaxis.set_major_formatter(dateForm)
 
-    plt.savefig(str(g.id) + '-history.png', bbox_inches = 'tight')
+    plt.savefig(str(g.id) + fileName, bbox_inches = 'tight')
     plt.close()
 
-    file = discord.File(str(g.id) + '-history.png', filename = 'data.png')
+    file = discord.File(str(g.id) + fileName, filename = 'data.png')
 
-    os.remove(str(g.id) + '-history.png')
+    os.remove(str(g.id) + fileName)
+
+    return file
+
+def quickPie(data, labels, size, g, total):
+    # returns file
+    fig = plt.figure(figsize = size)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.axis('equal')
+
+    p, tx, autotexts = ax.pie(data, labels = labels, autopct = '%1.2f%%')
+
+    for i, a in enumerate(autotexts):
+        a.set_text(f'{data[i]} ({round(data[i] / total, 2) * 100}%)')
+
+    plt.savefig(str(g.id) + '-pie.png', bbox_inches = 'tight')
+    plt.close()
+
+    file = discord.File(str(g.id) + '-pie.png', filename = 'data.png')
+
+    os.remove(str(g.id) + '-pie.png')
 
     return file
