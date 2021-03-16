@@ -88,7 +88,7 @@ def quickPlot(data, labels, size, g, file, graph, isDate = False):
         ax.bar(data[0], data[1], width = 1)
     elif graph == "line":
         ax.plot(data[0], data[1])
-    #ax.plot(data[0], data[1])
+        
     ax.set(xlabel = labels[0], ylabel = labels[1])
 
     if isDate:
