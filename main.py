@@ -13,6 +13,11 @@ import io
 started = False
 
 class _client(discord.Client):
+
+   
+    ######################################################
+    # INIT/TERMINATION                                   #
+    ######################################################
     async def on_ready(self):
         global started
         if started:
@@ -55,6 +60,10 @@ class _client(discord.Client):
         
         return rd
     
+  
+    ######################################################
+    # MESSAGE CONTROL                                    #
+    ######################################################
     async def on_message(self, message):
         global started
 
@@ -67,17 +76,6 @@ class _client(discord.Client):
         # command to run bot is \
         if message.content[0] != "\\":
             return
-        
-        '''
-        Avaliable commands:
-        \help
-        \history user channel startTime endTime
-            user, channel can be all
-            startTime, endTime can be default
-        \ratio channel phrase
-        \reset
-        \end
-        '''
 
         keyWords = message.content.split(' ')
         keyWords = [i.lower() for i in keyWords]
@@ -99,19 +97,28 @@ class _client(discord.Client):
             await message.channel.send("Restarted")
         elif keyWords[0] == '\\end':
             await self.terminate()
-        elif keyWords[0] == '\\debug':
-            self.debug(message)
         else:
             await message.channel.send(f"Did not recognize command '{keyWords[0]}'\nUse \\help to see a list of all possible commands")
 
-    def debug(self, m):
-        ci = self.guildInfo[m.guild.id].channelInfo
-        for (channel, info) in ci.items():
-            total = 0
-            for day in info["content"].values():
-                total += len(day)
-            print(f"{channel.name} : {total}")
+    async def on_message_delete(self, message):
+        self.internalDelete(message)
 
+    async def on_bulk_message_delete(self, messages):
+        for message in messages:
+            self.internalDelete(message)
+
+    def internalDelete(self, m):
+        g = self.guildInfo[m.guild.id]
+        i = 0
+        for message in g.channelInfo["content"][util.dtScore(m.created_at)]:
+            if message.id == m.id:
+                g.channelInfo["content"][util.dtScore(m.created_at)].pop(i)
+            i += 1
+
+
+    ######################################################
+    # USER COMMANDS                                      #
+    ######################################################
     async def history(self, m, keyWords):
         if len(keyWords) < 3:
             await m.channel.send("Incorrect number of arguments recieved")
@@ -121,6 +128,10 @@ class _client(discord.Client):
         channelsToCheck = []
         startTime = 0
         endTime = util.dtScore(datetime.datetime.now())
+
+        ######################################################
+        # GET USER VALUES                                    #
+        ######################################################
 
         # get user
         try:
@@ -196,6 +207,10 @@ class _client(discord.Client):
             m.channel.send(f'Did not recognize sort "{keyWords[5]}"')
             return
 
+        ######################################################
+        # GET DATA                                           #
+        ######################################################
+
         await m.channel.send("Gathering data...")
         ci = self.guildInfo[m.guild.id].channelInfo
         info = dict()
@@ -249,13 +264,14 @@ class _client(discord.Client):
                     if sort == "uniqueusers":
                         info[day] = int(len(seen))
 
-                
-                    
-        
+        ######################################################
+        # GENERATE PLOT                                      #
+        ######################################################
+
         names = [mdt.date2num(util.cleanUTC(t)) for t in info.keys()]
         values = list(info.values())
 
-        dateForm = mdt.DateFormatter("%m-%y")
+        dateForm = mdt.DateFormatter("%d-%m-%y")
         fig, ax = plt.subplots(figsize = (26, 14))
 
         ax.bar(names, values)
@@ -319,22 +335,11 @@ class _client(discord.Client):
         
         await m.channel.send(message)
     
-    async def on_message_delete(self, message):
-        self.internalDelete(message)
-
-    async def on_bulk_message_delete(self, messages):
-        for message in messages:
-            self.internalDelete(message)
-
-    def internalDelete(self, m):
-        g = self.guildInfo[m.guild.id]
-        i = 0
-        for message in g.channelInfo["content"][util.dtScore(m.created_at)]:
-            if message.id == m.id:
-                g.channelInfo["content"][util.dtScore(m.created_at)].pop(i)
-            i += 1
-
     async def ratio(self, m, keyWords):
+        ######################################################
+        # GET USER VALUES                                    #
+        ######################################################
+
         # make sure its in the right format
         if len(keyWords) <= 2:
             await m.channel.send("Incorrect number of arguments recieved")
@@ -347,15 +352,18 @@ class _client(discord.Client):
         else:
             await m.channel.send(f'Unable to read given format "{keyWords[2]}"')
             return
-
+        
         phrase = keyWords[3]
         if len(keyWords) >= 4:
             for continuedPhrase in m.content.split(' ')[4:]:
                 phrase += ' ' + continuedPhrase
 
+        ######################################################
+        # GET DATA                                           #
+        ######################################################
+
         users = dict()
         total = 0
-
         if keyWords[1].lower() == "all":
             # search for phrase in all channels
             channelsToSearch = m.guild.text_channels
@@ -373,7 +381,11 @@ class _client(discord.Client):
             if len(m.channel_mentions) != 1:
                 await m.channel.send("Unable to parse given channels")
             users, total = self.singleChannelSearch(phrase, self.guildInfo[m.guild.id][m.channel_mentions[0].id], frmat)
-            
+        
+        ######################################################
+        # GENERATE PLOT                                      #
+        ######################################################
+
         messageToSend = f'Found "{phrase}" a total of {total} times.\n'
 
         sortedUsers = sorted(users, key = users.get, reverse = True)
@@ -398,7 +410,11 @@ class _client(discord.Client):
         await m.channel.send(messageToSend, file = file)
 
         os.remove(str(m.guild.id) + '-pie.png')
-
+    
+    
+    ######################################################
+    # USER COMMANDS UTIL                                 #
+    ######################################################
     def singleChannelSearch(self, phrase, ci, frmat):
         users = dict()
         total = 0
@@ -419,11 +435,16 @@ class _client(discord.Client):
 
         return (users, total)
 
+
+    ######################################################
+    # REGULAR UTIL                                       #
+    ######################################################
     def joinQ(self, msgs):
         s = "guilds"
         for m in msgs:
             s += os.sep + str(m)
         return s
+
 
 intents = discord.Intents.default()
 intents.members = True
