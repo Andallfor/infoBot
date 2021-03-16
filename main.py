@@ -126,7 +126,7 @@ class _client(discord.Client):
         try:
             if keyWords[1] != "all":
                 if len(keyWords) > 5:
-                    if keyWords[5] == "uniqueusers":
+                    if keyWords[5] in ["uniqueusers", "users"]:
                         await m.channel.send('Detected sort "UniqueUsers". Setting users to "all".')
                         userToCheck = 0
                 userToCheck = m.mentions[0].id
@@ -137,8 +137,8 @@ class _client(discord.Client):
         # get channel
         if keyWords[2] == "all":
             if len(keyWords) > 5:
-                if keyWords[5] == "uniqueusers":
-                    await m.channel.send('Detected sort "UniqueUsers". Channel must a specific channel, where invite messages are sent.')
+                if keyWords[5] in ["uniqueusers", "users"]:
+                    await m.channel.send(f'Detected sort "{keyWords[5]}". Channel must a specific channel, where join messages are sent.')
                     return
             channelsToCheck = list(self.guildInfo[m.guild.id].channelInfo.keys())
         else:
@@ -272,12 +272,45 @@ class _client(discord.Client):
 
     async def help(self, m, keyWords):
         answers = {
-            "default" : "To use \\help, type \\help {*command*}.\nCommands: history, ratio, reset, end, overview",
-            "history" : "Generates a graph of the specified data.\nUsage: \\history user channel startTime endTime\n    User: Can be a specific @ or all. **Non-optional**.\n    Channel: Can be a specific # or all. **Non-optional**.\n    StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n    EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time, or use 0.\n    Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages, or use 0.",
-            "ratio" : "Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\nUsage: \\ratio channel format phrase\n    Channel: Can be a specific # or all. **Non-optional**.\n    Format: Can be default, nonCap, discord, or nonCapDiscord. Tells the program how to determine if a phrase is within a message. **Non-optional**.\n       - Default: Naively searches for a phrase. Is case-sensitive, and will include the result if it is found within another word.\n       - NonCap: Similar to default, however it is case-insensitive.\n       - Discord: Attempts to match the search to result discord provides in their search bar. Is case-sensetive.\n       - NonCapDiscord: Similar to discord, however it is case-insensitive.\n    Phrase: No particular format, but cannot contain a backslash. **Non-optional**.",
-            "reset" : "Restarts the bot, and also deletes all corresponding guild information. WARNING: MAY TAKE A LONG TIME.\nUsage: \\reset",
-            "end" : "Terminates the bot.\nUsage: \\end",
-            "overview" : r'''This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages). To see the source code, see https://github.com/Andallfor/infoBot.'''
+            "default" :     ("To use \\help, type \\help {*command*}.\n"
+                             "Commands: history, ratio, reset, end, overview, sort, format"),
+
+            "history" :     ("Generates a graph of the specified data.\n"
+                             "Usage: \\history user channel startTime endTime sort (format phrase)\n"
+                             "     User: Can be a specific @ or all. **Non-optional**.\n"
+                             "     Channel: Can be a specific # or all. **Non-optional**.\n"
+                             "     StartTime: A time in the format dd-mm-yyyy. **Optional**, defaults to creation of channel.\n"
+                             "     EndTime: A time in the format dd-mm-yyyy. **Optional**, defaults to current time, or use 0.\n"
+                             "     Sort: Tells the bot what data to draw from. Use \\help sort to see possible commands. **Optional**, defaults to messages.\n"
+                             '     Format: Use \\help format to see possible commands. **Only used if the sort is "phrase"**.\n'
+                             '     Phrase: No particular format, but cannot contain a backslash. **Only used if the sort is "phrase"**.\n'),
+
+            "ratio" :       ("Finds the amount of times a phrase was said, and the users that said it. Resulting data may not add up to 100%.\n"
+                             "Usage: \\ratio channel format phrase\n"
+                             "     Channel: Can be a specific # or all. **Non-optional**.\n"
+                             "     Tells the program how to determine if a phrase is within a message. Use \\help format to see possible commands. **Non-optional**.\n"
+                             "     Phrase: No particular format, but cannot contain a backslash. **Non-optional**."),
+
+            "format" :      ("Specifies how to determine if a phrase is within another. Can be default, nonCap, discord, or nonCapDiscord.\n"
+                             "     Default: Naively searches for a phrase. Is case-sensitive, and will include the result if it is found within another word.\n"
+                             "     NonCap: Similar to default, however it is case-insensitive.\n"
+                             "     Discord: Attempts to match the search to result discord provides in their search bar. Is case-sensetive.\n"
+                             "     NonCapDiscord: Similar to discord, however it is case-insensitive.\n"),
+            
+            "sort" :        ("Specifies what data to draw from. Can be messages, phrase, pins, users and uniqueUsers.\n"
+                             "     Phrase: Looks for a certain message. Requires the use of an additional format and phrase command.\n"
+                             "     Pins: Looks for when pins were added. Does not require any other arguments.\n"
+                             "     Users: Looks for when users were added to the server. Server must have messages sent upon arrival to true. User command must be all. Channel command must be the channel were join messages are sent by defualt.\n"
+                             "     UniqueUsers: Looks for when users were added to the server, and only counts unique personel. Same restrictions as the users command apply."),
+
+            "reset" :       ("Restarts the bot, and also deletes all corresponding guild information. WARNING: MAY TAKE A LONG TIME.\n"
+                             "Usage: \\reset"),
+
+            "end" :         ("Terminates the bot."
+                             "\nUsage: \\end"),
+
+            "overview" :    ("This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).\n"
+                             "To see the source code, see https://github.com/Andallfor/infoBot.")
         }
 
         message = answers["default"]
