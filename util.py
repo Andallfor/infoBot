@@ -1,5 +1,8 @@
 import discord
 import datetime
+import matplotlib.pyplot as plt
+import os
+import matplotlib.dates as mdt
 
 lLetters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
 cLetters = [l.upper() for l in lLetters]
@@ -76,3 +79,27 @@ def getFormat(frmat, phrase, match):
                     contains = False
     
     return contains
+
+def quickPlot(data, labels, size, g, file, graph, isDate = False):
+    # returns file
+    fig, ax = plt.subplots(figsize = size)
+
+    if graph == "bar":
+        ax.bar(data[0], data[1], width = 1)
+    elif graph == "line":
+        ax.plot(data[0], data[1])
+    #ax.plot(data[0], data[1])
+    ax.set(xlabel = labels[0], ylabel = labels[1])
+
+    if isDate:
+        dateForm = mdt.DateFormatter("%d-%m-%y")
+        ax.xaxis.set_major_formatter(dateForm)
+
+    plt.savefig(str(g.id) + '-history.png', bbox_inches = 'tight')
+    plt.close()
+
+    file = discord.File(str(g.id) + '-history.png', filename = 'data.png')
+
+    os.remove(str(g.id) + '-history.png')
+
+    return file
