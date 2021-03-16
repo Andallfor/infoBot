@@ -2,13 +2,11 @@ import discord
 import os
 import sys
 import json
-from discord import message
 import util
 import guildClass
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdt
 import datetime
-import io
 
 started = False
 
@@ -74,7 +72,7 @@ class _client(discord.Client):
         await self.guildInfo[message.guild.id].newMsg(message.channel, message)
 
         # command to run bot is \
-        if message.content[0] != "\\":
+        if len(message.content) > 0 and message.content[0] != "\\":
             return
 
         keyWords = message.content.split(' ')
@@ -86,7 +84,7 @@ class _client(discord.Client):
             await self.history(message, keyWords)
         elif keyWords[0] == '\\ratio':
             await self.ratio(message, keyWords)
-        elif keyWords[0] == '\\reset':
+        elif keyWords[0] == '\\reset' and message.author.id == 425786074812383233:
             started = False
             await message.channel.send("Restarting...")
             try:
@@ -95,7 +93,7 @@ class _client(discord.Client):
                 pass
             await self.on_ready()
             await message.channel.send("Restarted")
-        elif keyWords[0] == '\\end':
+        elif keyWords[0] == '\\end' and message.author.id == 425786074812383233:
             await self.terminate()
         else:
             await message.channel.send(f"Did not recognize command '{keyWords[0]}'\nUse \\help to see a list of all possible commands")
@@ -120,6 +118,9 @@ class _client(discord.Client):
     # USER COMMANDS                                      #
     ######################################################
     async def history(self, m, keyWords):
+        ######################################################
+        # GET USER VALUES                                    #
+        ######################################################
         if len(keyWords) < 3:
             await m.channel.send("Incorrect number of arguments recieved")
             return
@@ -128,11 +129,6 @@ class _client(discord.Client):
         channelsToCheck = []
         startTime = 0
         endTime = util.dtScore(datetime.datetime.now())
-
-        ######################################################
-        # GET USER VALUES                                    #
-        ######################################################
-
         # get user
         try:
             if keyWords[1] != "all":
@@ -271,25 +267,18 @@ class _client(discord.Client):
         names = [mdt.date2num(util.cleanUTC(t)) for t in info.keys()]
         values = list(info.values())
 
-        dateForm = mdt.DateFormatter("%d-%m-%y")
-        fig, ax = plt.subplots(figsize = (26, 14))
+        graph = "bar"
+        if sort in ["uniqueusers"]:
+            graph = "line"
 
-        ax.bar(names, values)
-        ax.set(xlabel = "Date", ylabel = "Messages Sent (month - year)")
-        ax.xaxis.set_major_formatter(dateForm)
+        file = util.quickPlot((names, values), ("Date", "Data"), (26, 14), m.guild, "-history.png", graph, True)
 
-        plt.savefig(str(m.guild.id) + '-history.png', bbox_inches = 'tight')
-        plt.close()
-
-        file = discord.File(str(m.guild.id) + '-history.png', filename = 'data.png')
         await m.channel.send(file = file)
-
-        os.remove(str(m.guild.id) + '-history.png')
 
     async def help(self, m, keyWords):
         answers = {
             "default" :     ("To use \\help, type \\help {*command*}.\n"
-                             "Commands: history, ratio, reset, end, overview, sort, format"),
+                             "Commands: history, ratio, overview, sort, format"),
 
             "history" :     ("Generates a graph of the specified data.\n"
                              "Usage: \\history user channel startTime endTime sort (format phrase)\n"
@@ -318,12 +307,6 @@ class _client(discord.Client):
                              "     Pins: Looks for when pins were added. Does not require any other arguments.\n"
                              "     Users: Looks for when users were added to the server. Server must have messages sent upon arrival to true. User command must be all. Channel command must be the channel were join messages are sent by defualt.\n"
                              "     UniqueUsers: Looks for when users were added to the server, and only counts unique personel. Same restrictions as the users command apply."),
-
-            "reset" :       ("Restarts the bot, and also deletes all corresponding guild information. WARNING: MAY TAKE A LONG TIME.\n"
-                             "Usage: \\reset"),
-
-            "end" :         ("Terminates the bot."
-                             "\nUsage: \\end"),
 
             "overview" :    ("This bot was created to see more data about a specifc server. It is not 100% loss proof (funky stuff happens when deleting messages).\n"
                              "To see the source code, see https://github.com/Andallfor/infoBot.")
@@ -445,6 +428,7 @@ class _client(discord.Client):
             s += os.sep + str(m)
         return s
 
+   
 
 intents = discord.Intents.default()
 intents.members = True
