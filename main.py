@@ -7,6 +7,9 @@ import guildClass
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdt
 import datetime
+import re
+
+# common words by https://gist.github.com/deekayen/4148741
 
 started = False
 
@@ -20,6 +23,10 @@ class _client(discord.Client):
         global started
         if started:
             return
+
+        self.commonWords = open("commonWords.txt", "r").read().split('\n')
+        self.commonWords = [x.lower().strip() for x in self.commonWords]
+        print(self.commonWords)
 
         # {guild.id : guild}
         self.guildInfo = dict()
@@ -86,6 +93,8 @@ class _client(discord.Client):
             await self.ratio(message, keyWords)
         elif keyWords[0] == '\\dratio':
             await self.dRatio(message, keyWords)
+        elif keyWords[0] == '\\common':
+            await self.common(message, keyWords)
         elif keyWords[0] == '\\reset' and message.author.id == 425786074812383233:
             started = False
             await message.channel.send("Restarting...")
@@ -308,12 +317,12 @@ class _client(discord.Client):
                              "     Phrase: Looks for the relationship between the times a user has said a certain phrase versus their total messages. Requies use of an additional format and phrase command, and user must be a @.\n"),
 
             "common":       ("Common: Looks for the 20 most common words a user/server has said.\n"
-                             "Usage: \\common user format ignore customIgnore"
-                             "     Format: See \\format. **Non-optional**.\n"
+                             "Usage: \\common user ignore customIgnore\n"
+                             "     User: Must be a specific @."
                              "     Ignore: Can be either ignoreCommon or ignoreCustom. **Non-optional**.\n"
                              "          ignoreCommon: Ignores the most common words. Still allows for additional custom ignores.\n"
                              "          ignoreCustom: Only ignores words that the user inputs.\n"
-                             "     CustomIgnore: An input for words and phrases that will be ignored by the bot. Use hyphens to join words together. I.E. Ignore-This-Phrase. **Optional**."),
+                             "     CustomIgnore: An input for words that will be ignored by the bot. **Optional**."),
 
             "format" :      ("Specifies how to determine if a phrase is within another. Can be default, nonCap, discord, or nonCapDiscord.\n"
                              "     Default: Naively searches for a phrase. Is case-sensitive, and will include the result if it is found within another word.\n"
@@ -482,9 +491,61 @@ class _client(discord.Client):
             await m.channel.send(f'{self.get_user(userToCheck)} has said "{phrase}" {info[userToCheck]} times, accounting for {round(info[userToCheck]/total, 2) * 100}% of their total messages.')
             return
                     
-    
     async def common(self, m, keyWords):
-        pass
+        if len(keyWords) < 3:
+            await m.channel.send("Incorrect number of arugments recieved.")
+            return
+        
+        try:
+            userToCheck = m.mentions[0].id
+        except:
+            await m.channel.send(f'Did not recognize user "{keyWords[1]}".')
+            return
+
+        ignore = []
+        if keyWords[2] in ["ignorecommon", "ignorecustom"]:
+            if keyWords[2] == "ignorecommon":
+                ignore = self.commonWords
+            if len(keyWords) > 3:
+                custom = keyWords[3:]
+                for word in custom:
+                    ignore.append(word)
+        else:
+            await m.channel.send(f'Did not recognize ignore "{keyWords[2]}"')
+            return
+
+        info = dict()
+        regex = re.compile('[^a-zA-Z]')
+        total = 0
+        print(ignore)
+        for (c, value) in self.guildInfo[m.guild.id].channelInfo.items():
+            for (day, messages) in value["content"].items():
+                for message in messages:
+                    if message["author"] == userToCheck:
+                        for word in message["content"].split(' '):
+                            formattedWord = regex.sub('', word)
+                            formattedWord = formattedWord.lower()
+
+                            if len(formattedWord) == 0:
+                                continue
+
+                            if formattedWord not in ignore:
+                                if formattedWord not in info:
+                                    info[formattedWord] = 0
+                                info[formattedWord] += 1
+                        total += 1
+
+        sortedWords = sorted(info, key = info.get, reverse = True)
+
+        words = sortedWords[:min(len(sortedWords), 10)]
+
+        message = 'The most common words/phrases are: \n'
+
+        for word in words:
+            message += f'"{word}": {round((info[word] / total) * 100, 2)}% ({info[word]})\n'
+        
+        await m.channel.send(message)
+                        
 
 
     ######################################################
