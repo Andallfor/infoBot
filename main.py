@@ -84,6 +84,8 @@ class _client(discord.Client):
             await self.history(message, keyWords)
         elif keyWords[0] == '\\ratio':
             await self.ratio(message, keyWords)
+        elif keyWords[0] == '\\dratio':
+            await self.dRatio(message, keyWords)
         elif keyWords[0] == '\\reset' and message.author.id == 425786074812383233:
             started = False
             await message.channel.send("Restarting...")
@@ -108,11 +110,11 @@ class _client(discord.Client):
     def internalDelete(self, m):
         g = self.guildInfo[m.guild.id]
         i = 0
-        for message in g.channelInfo["content"][util.dtScore(m.created_at)]:
+        for message in g.channelInfo[m.channel]["content"][util.dtScore(m.created_at)]:
             if message.id == m.id:
                 g.channelInfo["content"][util.dtScore(m.created_at)].pop(i)
+                return
             i += 1
-
 
     ######################################################
     # USER COMMANDS                                      #
@@ -295,6 +297,23 @@ class _client(discord.Client):
                              "     Channel: Can be a specific # or all. **Non-optional**.\n"
                              "     Tells the program how to determine if a phrase is within a message. Use \\help format to see possible commands. **Non-optional**.\n"
                              "     Phrase: No particular format, but cannot contain a backslash. **Non-optional**."),
+            
+            "dratio":       ("A more specific form of \\ratio. Finds the ratio of specific elements instead of a phrase.\n"
+                             "Usage: \\dRatio user dSort (format phrase)\n"
+                             "     User can be a specific @ or all. **Non-optional**.\n"
+                             "     dSort: Tells the bot what data to look for. See \\dSort. **Non-optional**."),
+
+            "dsort":        ("Specifies what data that dRatio looks for.\n"
+                             "     Pins: Looks for the total amount of pins. Requires user to be all.\n"
+                             "     Phrase: Looks for the relationship between the times a user has said a certain phrase versus their total messages. Requies use of an additional format and phrase command, and user must be a @.\n"),
+
+            "common":       ("Common: Looks for the 20 most common words a user/server has said.\n"
+                             "Usage: \\common user format ignore customIgnore"
+                             "     Format: See \\format. **Non-optional**.\n"
+                             "     Ignore: Can be either ignoreCommon or ignoreCustom. **Non-optional**.\n"
+                             "          ignoreCommon: Ignores the most common words. Still allows for additional custom ignores.\n"
+                             "          ignoreCustom: Only ignores words that the user inputs.\n"
+                             "     CustomIgnore: An input for words and phrases that will be ignored by the bot. Use hyphens to join words together. I.E. Ignore-This-Phrase. **Optional**."),
 
             "format" :      ("Specifies how to determine if a phrase is within another. Can be default, nonCap, discord, or nonCapDiscord.\n"
                              "     Default: Naively searches for a phrase. Is case-sensitive, and will include the result if it is found within another word.\n"
@@ -377,24 +396,97 @@ class _client(discord.Client):
         values = [users[user] for user in names]
         names = ["Unknown" if self.get_user(user) == None else self.get_user(user).display_name for user in names]
 
-        fig = plt.figure(figsize = (9, 9))
-        ax = fig.add_axes([0, 0, 1, 1])
-        ax.axis('equal')
-
-        p, tx, autotexts = ax.pie(values, labels = names, autopct = '%1.2f%%')
-
-        for i, a in enumerate(autotexts):
-            a.set_text(f'{values[i]} ({round(values[i] / total, 2) * 100}%)')
-
-        plt.savefig(str(m.guild.id) + '-pie.png', bbox_inches = 'tight')
-        plt.close()
-
-        file = discord.File(str(m.guild.id) + '-pie.png', filename = 'data.png')
+        file = util.quickPie(values, names, (9, 9), self.guildInfo[m.guild.id].guild, total)
         await m.channel.send(messageToSend, file = file)
+    
+    async def dRatio(self, m, keyWords):
+        ######################################################
+        # GET USER VALUES                                    #
+        ######################################################
+        if len(keyWords) < 3:
+            await m.channel.send("Incorrect number of arguments recieved")
+            return
+        
+        if keyWords[2] not in ["pins", "phrase"]:
+            await m.channel.send(f'Did not recoginize dSort "{keyWords[2]}"')
+            return
+        sort = keyWords[2]
 
-        os.remove(str(m.guild.id) + '-pie.png')
+        if sort == "pins":
+            if keyWords[1] != "all":
+                await m.channel.send(f'Detected sort {keyWords[2]}. Setting users to "all".')
+        
+        if sort == "phrase":
+            if keyWords[1] == "all":
+                await m.channel.send(f'Detected sort {keyWords[2]}. This sort requires user to be a specific @.')
+                return
+
+        userToCheck = 0
+        try:
+            if keyWords[1] != "all":
+                userToCheck = m.mentions[0].id
+        except:
+            m.channel.send(f'Did not recognize user "{keyWords[1]}"')
+            return
+
+        if sort == "phrase":
+            if len(keyWords) < 4:
+                await m.channel.send("Incorrect number of arguments recieved")
+                return
+            
+            if keyWords[3] in ["default", "noncap", "discord", "noncapdiscord"]:
+                frmat = keyWords[3]
+            else:
+                await m.channel.send(f'Unable to read given format "{keyWords[2]}"')
+                return
+            
+            phrase = keyWords[4]
+            if len(keyWords) >= 5:
+                for continuedPhrase in m.content.split(' ')[5:]:
+                    phrase += ' ' + continuedPhrase
+        
+        ######################################################
+        # GET DATA                                           #
+        ######################################################
+        info = dict()
+        total = 0
+        for (c, value) in self.guildInfo[m.guild.id].channelInfo.items():
+            for (day, messages) in value["content"].items():
+                for message in messages:
+                    if sort == "pins":
+                        if message["type"][1] == 6:
+                            if message["author"] not in info.keys():
+                                info[message["author"]] = 0
+                            info[message["author"]] += 1
+                            total += 1
+                    elif sort == "phrase":
+                        if message["author"] == userToCheck:
+                            if util.getFormat(frmat, phrase, message["content"]):
+                                if message["author"] not in info.keys():
+                                    info[message["author"]] = 0
+                                info[message["author"]] += 1
+                            else:
+                                total += 1
+
+        if sort == "pins":
+            sortedUsers = sorted(info, key = info.get, reverse = True)
+
+            names = sortedUsers[:min(len(sortedUsers), 10)]
+            values = [info[user] for user in names]
+            names = ["Unknown" if self.get_user(user) == None else self.get_user(user).display_name for user in names]
+
+            file = util.quickPie(values, names, (9, 9), m.guild, total)
+            await m.channel.send(f"A total of {total} pins have been made.", file = file)
+            return
+        elif sort == "phrase":
+            await m.channel.send(f'{self.get_user(userToCheck)} has said "{phrase}" {info[userToCheck]} times, accounting for {round(info[userToCheck]/total, 2) * 100}% of their total messages.')
+            return
+                    
     
-    
+    async def common(self, m, keyWords):
+        pass
+
+
     ######################################################
     # USER COMMANDS UTIL                                 #
     ######################################################
