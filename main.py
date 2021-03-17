@@ -26,7 +26,6 @@ class _client(discord.Client):
 
         self.commonWords = open("commonWords.txt", "r").read().split('\n')
         self.commonWords = [x.lower().strip() for x in self.commonWords]
-        print(self.commonWords)
 
         # {guild.id : guild}
         self.guildInfo = dict()
@@ -289,7 +288,7 @@ class _client(discord.Client):
     async def help(self, m, keyWords):
         answers = {
             "default" :     ("To use \\help, type \\help {*command*}.\n"
-                             "Commands: history, ratio, overview, sort, format"),
+                             "Commands: history, ratio, dRatio, dSort, common, overview, sort, format"),
 
             "history" :     ("Generates a graph of the specified data.\n"
                              "Usage: \\history user channel startTime endTime sort (format phrase)\n"
@@ -318,7 +317,7 @@ class _client(discord.Client):
 
             "common":       ("Common: Looks for the 20 most common words a user/server has said.\n"
                              "Usage: \\common user ignore customIgnore\n"
-                             "     User: Must be a specific @."
+                             "     User: Must be a specific @.\n"
                              "     Ignore: Can be either ignoreCommon or ignoreCustom. **Non-optional**.\n"
                              "          ignoreCommon: Ignores the most common words. Still allows for additional custom ignores.\n"
                              "          ignoreCustom: Only ignores words that the user inputs.\n"
@@ -517,7 +516,6 @@ class _client(discord.Client):
         info = dict()
         regex = re.compile('[^a-zA-Z]')
         total = 0
-        print(ignore)
         for (c, value) in self.guildInfo[m.guild.id].channelInfo.items():
             for (day, messages) in value["content"].items():
                 for message in messages:
