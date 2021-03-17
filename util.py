@@ -113,7 +113,7 @@ def quickPie(data, labels, size, g, total):
     p, tx, autotexts = ax.pie(data, labels = labels, autopct = '%1.2f%%')
 
     for i, a in enumerate(autotexts):
-        a.set_text(f'{data[i]} ({round(round(data[i] / total, 2) * 100, 2)}%)')
+        a.set_text(f'{data[i]} ({round((data[i] / total) * 100, 2)}%)')
 
     plt.savefig(str(g.id) + '-pie.png', bbox_inches = 'tight')
     plt.close()
