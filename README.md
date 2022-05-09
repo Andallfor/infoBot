@@ -80,3 +80,4 @@ Steps:
 3. Copy the bot's token.
 4. Open the folder that contains the files (note that you your relative path must be the folder, as the program uses relative pathes).
 5. Run `main.py` with the token as the only argument.
+6. Wait until the bot prints "ready" into the terminal. Note that this may take a while as the bot needs to index the server that it is running on first.
