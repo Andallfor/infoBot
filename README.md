@@ -1,3 +1,5 @@
+# TODO LIST:
+- fix bugs and stuff (eta: sometime in the next few years)
 # Info Bot
 A general Dmscord bot that allows users to see various pieces of information about a server and the users within.  
 See the [Usage](#usage) section for detailed information.
